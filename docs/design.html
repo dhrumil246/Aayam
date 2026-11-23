@@ -1,0 +1,441 @@
+<title>Twin-Ticket Task Factory</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sticky table of contents beside a single reading column; collapses to one column on phones. */
+:root{
+  --bg:#f6f7fa; --surface:#ffffff; --fg:#141a2b; --muted:#566079; --line:#dde1ea;
+  --accent:#2c49c9; --accent-soft:#e6eafb;
+  --pass:#1f7a4d; --pass-soft:#e2f3ea; --fail:#b3261e; --fail-soft:#fbe6e4; --open:#8a5a00; --open-soft:#fbf0d9;
+  --code-bg:#eef0f6;
+  --f-display:"Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  --f-body:"Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1320; --surface:#161b2b; --fg:#e7eaf3; --muted:#9aa3bb; --line:#2a3148;
+  --accent:#8ea2ff; --accent-soft:#1f2747;
+  --pass:#6fd3a0; --pass-soft:#163324; --fail:#ff8f86; --fail-soft:#3a1a1a; --open:#f0c36a; --open-soft:#352a12;
+  --code-bg:#1c2236; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1320; --surface:#161b2b; --fg:#e7eaf3; --muted:#9aa3bb; --line:#2a3148;
+  --accent:#8ea2ff; --accent-soft:#1f2747;
+  --pass:#6fd3a0; --pass-soft:#163324; --fail:#ff8f86; --fail-soft:#3a1a1a; --open:#f0c36a; --open-soft:#352a12;
+  --code-bg:#1c2236; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.65 var(--f-body);
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px))}
+.wrap{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:220px minmax(0,1fr);gap:48px;padding-block:40px 80px}
+nav.toc{position:sticky;top:calc(env(safe-area-inset-top, 0px) + 24px);align-self:start;font-size:13px}
+nav.toc p{font:600 11px/1 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+nav.toc ol{list-style:none;margin:0;padding:0;display:grid;gap:4px;counter-reset:s}
+nav.toc a{color:var(--muted);text-decoration:none;display:block;padding:2px 0}
+nav.toc a:hover,nav.toc a:focus-visible{color:var(--accent)}
+main{min-width:0;max-width:760px}
+header.top{display:grid;gap:12px;padding-bottom:28px;border-bottom:1px solid var(--line);margin-bottom:8px}
+.eyebrow{font:600 11px/1 var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+h1{font:700 clamp(30px,5vw,42px)/1.1 var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.meta{color:var(--muted);font-size:13px;display:flex;flex-wrap:wrap;gap:6px 16px}
+.thesis{font-size:17px;line-height:1.6;margin:8px 0 0;padding:16px 20px;background:var(--accent-soft);border-radius:8px}
+h2{font:600 22px/1.25 var(--f-display);margin:48px 0 12px;text-wrap:balance;scroll-margin-top:24px}
+h2 .n{color:var(--muted);font-weight:500;margin-right:8px;font-variant-numeric:tabular-nums}
+h3{font:600 16px/1.3 var(--f-display);margin:28px 0 8px}
+p,li{max-width:68ch}
+ul,ol{padding-left:20px}
+li{margin:4px 0}
+a{color:var(--accent)}
+code{font:13px/1.5 var(--f-mono);background:var(--code-bg);padding:1px 5px;border-radius:4px}
+pre{font:12.5px/1.55 var(--f-mono);background:var(--code-bg);padding:16px;border-radius:8px;overflow-x:auto;margin:12px 0}
+pre code{background:none;padding:0}
+.tbl{overflow-x:auto;margin:12px 0;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:none}
+th{font:600 11.5px/1.3 var(--f-body);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:600}
+.pill{display:inline-block;font:600 12px/1 var(--f-body);padding:5px 9px;border-radius:999px;white-space:nowrap}
+.pass{background:var(--pass-soft);color:var(--pass)}
+.fail{background:var(--fail-soft);color:var(--fail)}
+.open{background:var(--open-soft);color:var(--open)}
+.chosen{background:var(--accent-soft);color:var(--accent)}
+.matrix{display:grid;grid-template-columns:auto repeat(2,minmax(0,1fr));gap:6px;max-width:520px;margin:14px 0;font-size:13.5px}
+.matrix > div{padding:10px 12px;border-radius:6px}
+.matrix .h{font:600 11.5px/1.3 var(--f-body);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding-inline:4px}
+.matrix .cell{font-weight:600;text-align:center}
+.callout{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:14px 18px;margin:14px 0}
+.callout strong:first-child{display:block;font-family:var(--f-display);margin-bottom:4px}
+.milestone{border:1.5px solid var(--accent);background:var(--accent-soft);border-radius:8px;padding:14px 18px;margin:14px 0}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:12px 0}
+.cols .callout{margin:0}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:13px}
+@media (max-width:860px){.wrap{grid-template-columns:minmax(0,1fr);gap:16px;padding-block:24px 56px}nav.toc{position:static}nav.toc ol{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+</style>
+
+<div class="wrap">
+<nav class="toc" aria-label="Contents">
+  <p>Contents</p>
+  <ol>
+    <li><a href="#intent">1 · Intent</a></li>
+    <li><a href="#criteria">2 · Evaluation criteria</a></li>
+    <li><a href="#goals">3 · Goals</a></li>
+    <li><a href="#constraints">4 · Constraints</a></li>
+    <li><a href="#approaches">5 · Approaches</a></li>
+    <li><a href="#concepts">6 · Core concepts</a></li>
+    <li><a href="#pipeline">7 · Pipeline</a></li>
+    <li><a href="#gauntlet">8 · Validation gauntlet</a></li>
+    <li><a href="#variation">9 · Variation</a></li>
+    <li><a href="#sensitivity">10 · Sensitivity experiment</a></li>
+    <li><a href="#package">11 · Package layout</a></li>
+    <li><a href="#demo">12 · Demo script</a></li>
+    <li><a href="#stack">13 · Architecture</a></li>
+    <li><a href="#team">14 · Team</a></li>
+    <li><a href="#plan">15 · Day-by-day plan</a></li>
+    <li><a href="#metrics">16 · Metrics</a></li>
+    <li><a href="#limits">17 · Limitations</a></li>
+    <li><a href="#builder">18 · Left to builder</a></li>
+    <li><a href="#calls">19 · Calls made</a></li>
+    <li><a href="#open">20 · Open items</a></li>
+  </ol>
+</nav>
+
+<main>
+<header class="top">
+  <span class="eyebrow">Design document</span>
+  <h1>Twin-Ticket Task Factory</h1>
+  <div class="meta"><span>Design as of 23 Nov 2026</span><span>Target repo: <code>pallets/click</code></span><span>Submission due 6 Dec 2026</span><span>Team of 4</span></div>
+  <p class="thesis">We turn a real repository into new, runnable feature tasks. The factory generates them in <strong>twins</strong>: two standalone tickets from the same commit that differ in one meaningful rule. It then finds the exact case a grader must check to tell the two apart.</p>
+</header>
+
+<h2 id="intent"><span class="n">1</span>Intent</h2>
+<p>Build a reusable factory that turns a real repository into new, runnable feature-development tasks, and prove the tasks are good. Twins supply evidence for three scored criteria at once:</p>
+<ul>
+  <li><strong>Validity:</strong> the tests demonstrably reject a plausible wrong implementation (the twin).</li>
+  <li><strong>Variation:</strong> the difference is behavioural and proven by execution, not by wording.</li>
+  <li><strong>Impact:</strong> twins measure whether an AI solver actually follows the requirement that changed.</li>
+</ul>
+<p><strong>Pitch line:</strong> "Our factory generated two individually solvable tasks and found the test needed to tell them apart."</p>
+
+<h2 id="criteria"><span class="n">2</span>Evaluation criteria we target</h2>
+<div class="tbl"><table>
+<thead><tr><th>Weight</th><th>Criterion</th><th>What's expected</th><th>Our answer</th></tr></thead>
+<tbody>
+<tr><td class="num">25%</td><td>Working, repeatable implementation</td><td>Start from one supplied repo; generate multiple tasks; the approach should carry over when the repo changes. Teams choose one of three repos.</td><td>End-to-end CLI on click; many features from different behaviour families; repo specifics kept in one adapter file.</td></tr>
+<tr><td class="num">25%</td><td>Validation</td><td>Original repo passes existing tests; the feature test fails on the original; the reference passes both.</td><td>The basic validation matrix (G1–G3) is in every package and shown first in the demo. Extra gates follow.</td></tr>
+<tr><td class="num">20%</td><td>Variation</td><td>"Black Friday banner → Christmas banner" is not variation. Explain how the generator produces it.</td><td>Behaviour-family catalogue, twin rule pairs, and a held-out measurement (§8, §9).</td></tr>
+<tr><td class="num">15%</td><td>Originality</td><td>Originality lives in the checks designed during generation. AI may write the reference; show evidence it meets the requirement.</td><td>Pivot probes, differential search, mutant gauntlet, blind solver, three-way diagnosis.</td></tr>
+<tr><td class="num">15%</td><td>Impact &amp; communication</td><td>Value for evaluating AI coders; a clear demo.</td><td>Requirement-sensitivity experiment, live "break the grader" demo, offline-replayable evidence.</td></tr>
+</tbody></table></div>
+<p>Expected package contents: the starting repo and version, instructions in Markdown, the solution as a patch, and tests. The exact template was not final, so export is a thin, last, swappable stage.</p>
+
+<div class="callout"><strong>The basic validation matrix (required for every ticket)</strong>
+<div class="matrix" role="table" aria-label="Basic validation matrix">
+  <div class="h"></div><div class="h">Existing tests</div><div class="h">New feature tests</div>
+  <div class="h">Original repo</div><div class="cell pass">Pass</div><div class="cell fail">Fail</div>
+  <div class="h">Reference patch</div><div class="cell pass">Pass</div><div class="cell pass">Pass</div>
+</div></div>
+
+<h2 id="goals"><span class="n">3</span>Goals, non-goals, anti-goals</h2>
+<div class="cols">
+<div class="callout"><strong>Goals</strong><ul>
+<li>One command generates and validates a twin pair from a pinned click commit.</li>
+<li>Every package passes the basic validation matrix.</li>
+<li>8–12 validated pairs (16–24 packages) across at least 5 behaviour families.</li>
+<li>An evidence report a reviewer can open without any API key.</li>
+<li>A live demo: generate, validate, cross-grade, break the grader.</li></ul></div>
+<div class="callout"><strong>Non-goals</strong><ul>
+<li>Supporting all three repos. A second repo is a bonus only if everything else is green by 3 Dec.</li>
+<li>A polished web app. A CLI plus a small demo page is enough.</li>
+<li>Training data at scale.</li>
+<li>Adaptive follow-up generation for the first deadline. It's a later stretch goal.</li></ul></div>
+<div class="callout"><strong>Anti-goals</strong><ul>
+<li>Tasks that differ only in names, wording or literal values.</li>
+<li>Tests that import private internals.</li>
+<li>Tests that check behaviour the ticket never states.</li>
+<li>Features that already exist upstream.</li>
+<li>Testable features no real user would want.</li>
+<li>Evidence that only reproduces with paid API calls.</li></ul></div>
+</div>
+
+<h2 id="constraints"><span class="n">4</span>Constraints</h2>
+<ul>
+<li>13 days (24 Nov – 6 Dec), 4 people, standard laptops.</li>
+<li>Model access through provided model credits (provider and amount to be confirmed). Every model call goes through one function, so the provider is a config value.</li>
+<li>No API keys in the repo. Reused open source is listed in the README.</li>
+<li>Native stack: tasks run in click's own Python and pytest setup.</li>
+</ul>
+
+<h2 id="approaches"><span class="n">5</span>Approaches considered</h2>
+<div class="tbl"><table>
+<thead><tr><th>Approach</th><th>Trade-off</th><th>Verdict</th></tr></thead>
+<tbody>
+<tr><td><strong>A.</strong> Reverse SWE-smith: delete an existing feature, ask for it back</td><td>Cheap; existing tests give validity. Not new, likely in training data, weak originality.</td><td><span class="pill fail">Rejected</span></td></tr>
+<tr><td><strong>B.</strong> Mine upstream feature PRs (FEA-Bench / SWE-Dev style)</td><td>Realistic, but contaminated, not generation, and copies prior work.</td><td><span class="pill fail">Rejected</span></td></tr>
+<tr><td><strong>C.</strong> Novel feature synthesis with an adversarial validation gauntlet</td><td>Original and strong on validity. On its own, variation is asserted rather than proven.</td><td><span class="pill open">Merged</span></td></tr>
+<tr><td><strong>D.</strong> Twin tickets, small-difference search, break-the-grader demo</td><td>Proves variation and requirement sensitivity; great demo. Its hand-built behaviour model was a scope risk, and two references can share a bug.</td><td><span class="pill open">Merged</span></td></tr>
+<tr><td><strong>C + D</strong></td><td>Twins are the product, the pivot probe and differential search are the engineering centrepiece, the gauntlet is the proof, break-the-grader is the demo. Costs twice the generation per feature and more gates.</td><td><span class="pill chosen">Chosen</span></td></tr>
+</tbody></table></div>
+<p>Changes made while merging:</p>
+<ul>
+<li>No hand-built behaviour model. Search runs on the two real patched copies of click.</li>
+<li>Expected outcomes come from the tickets, never from a reference's output (§8).</li>
+<li>The mutant gauntlet is mandatory, because two LLM references can share the same bug.</li>
+<li>Breadth across behaviour families is mandatory, so twins don't all look like one template.</li>
+</ul>
+<p><strong>Repo: <code>pallets/click</code>.</strong> Python has the best tooling (pytest, Hypothesis, mutmut) and the most reliable LLM patches. A CLI invocation is naturally a sequence of actions, so break-the-grader maps cleanly. zod is the fallback; jsoncpp is avoided (slow builds, poor mutation tooling).</p>
+
+<h2 id="concepts"><span class="n">6</span>Core concepts</h2>
+<div class="tbl"><table><tbody>
+<tr><td><strong>Seed feature</strong></td><td>One repo-grounded feature idea tied to an existing extension point, such as option declaration, parameter source resolution or chained command results.</td></tr>
+<tr><td><strong>Policy dimension</strong></td><td>The one decision inside the feature where two reasonable rules exist. Each rule has a stakeholder reason for why a real team would pick it.</td></tr>
+<tr><td><strong>Contract</strong></td><td>Numbered, testable requirements R1…Rn. Shared clauses are identical across twins; exactly one clause, the <em>pivot clause</em>, differs. The contract also lists what is deliberately left open.</td></tr>
+<tr><td><strong>Ticket</strong></td><td>The public brief in Markdown that a solver sees. Derived from the contract; never includes hidden tests or the twin.</td></tr>
+<tr><td><strong>Grader</strong></td><td>The hidden feature tests for one ticket. Each test is tagged <code>new</code> or <code>preserved</code> and cites the requirements it checks.</td></tr>
+<tr><td><strong>Pivot probe</strong></td><td>An input that exercises the changed rule, plus each ticket's expected outcome written as semantic assertions.</td></tr>
+<tr><td><strong>Package</strong></td><td>One standalone task: ticket, base commit, reference patch, grader and evidence. Twins are two packages linked by <code>pair_id</code>.</td></tr>
+</tbody></table></div>
+
+<h2 id="pipeline"><span class="n">7</span>Pipeline</h2>
+<pre class="mermaid">flowchart LR
+  S0[0 Pin and baseline] --> S1[1 Discover surfaces]
+  S1 --> S2[2 Propose seed and policy pair]
+  S2 --> S3[3 Freeze contracts A and B]
+  S3 --> S4[4 Reference patches A and B]
+  S3 --> S5[5 Graders from contract only]
+  S4 --> S6{6 Validation gauntlet}
+  S5 --> S6
+  S6 -- fail --> R[Repair, max 2] --> S6
+  R -- still failing --> X[Reject and log reason]
+  S6 -- pass --> S7[7 Blind solver and diagnosis]
+  S7 --> S8[8 Export packages]
+  S8 --> S9[9 Report]</pre>
+<div class="tbl"><table>
+<thead><tr><th>Stage</th><th>What it does</th><th>AI or algorithm</th></tr></thead>
+<tbody>
+<tr><td>0 Pin &amp; baseline</td><td>Clone click at the agreed revision, record the SHA, build a Docker image, run the full suite, record any pre-existing flaky or failing tests.</td><td>Algorithm</td></tr>
+<tr><td>1 Discover surfaces</td><td>Summarise the public API and extension points into a short surface map.</td><td>AI reads code; algorithm lists public names</td></tr>
+<tr><td>2 Propose</td><td>A seed feature and policy pair with stakeholder reasons for a target behaviour family. Reject if it already exists or scores low on realism.</td><td>AI proposes; algorithm checks novelty</td></tr>
+<tr><td>3 Contracts</td><td>Shared clauses, pivot clause for A and B, open items, public API signature, input grammar and pivot probe. Frozen with a stored hash.</td><td>AI, then frozen</td></tr>
+<tr><td>4 References</td><td>An agent loop in the sandbox implements contract A, then B, each from base.</td><td>AI</td></tr>
+<tr><td>5 Graders</td><td>Tests generated from the contract only, never shown the reference patch. Public API only.</td><td>AI</td></tr>
+<tr><td>6 Gauntlet</td><td>Gates G0–G9 (§8). At most 2 repair attempts, then the pair is rejected with its reason logged.</td><td>Algorithm, AI for repairs</td></tr>
+<tr><td>7 Blind solver</td><td>A separate run gets only the ticket and base repo and writes its own patch. Graded, then diagnosed.</td><td>AI solver; algorithm diagnosis plus AI judge</td></tr>
+<tr><td>8 Export</td><td>Write each package in the required package format.</td><td>Algorithm</td></tr>
+<tr><td>9 Report</td><td>Static HTML from stored JSON: matrices, probes, kill tables, held-out results, costs, rejections.</td><td>Algorithm</td></tr>
+</tbody></table></div>
+
+<h2 id="gauntlet"><span class="n">8</span>Validation gauntlet</h2>
+<p>Every run happens in Docker from a clean checkout of the base commit plus the patch under test.</p>
+<div class="tbl"><table>
+<thead><tr><th>Gate</th><th>Check</th><th>Pass condition</th></tr></thead>
+<tbody>
+<tr><td><strong>G0</strong> Baseline</td><td>Existing suite on base</td><td>Green; known flaky tests listed and excluded the same way everywhere</td></tr>
+<tr><td><strong>G1</strong> Fail-before</td><td>Grader on base; tests tagged <code>new</code> or <code>preserved</code></td><td>Every <code>new</code> test fails for an expected reason: an assertion failure, or the missing public API named in the contract. Collection errors, import errors in the test file or broken fixtures never count. <code>preserved</code> tests pass on base.</td></tr>
+<tr><td><strong>G2</strong> Pass-after</td><td>Grader plus full existing suite on the reference</td><td>All pass</td></tr>
+<tr><td><strong>G3</strong> Stability</td><td>G1 and G2 repeated 5 times</td><td>Identical results</td></tr>
+<tr><td><strong>G4</strong> Public-API lint</td><td>AST scan of grader imports and attribute access</td><td>No private names, no reference-only helpers</td></tr>
+<tr><td><strong>G5</strong> Twin separation</td><td>Pivot probe from the tickets, replayed through both real patches, then cross-grade</td><td>Each reference meets its own ticket's pivot assertions and violates its twin's; both graders contain the probe</td></tr>
+<tr><td><strong>G6</strong> Mutant kill</td><td>At least one plausible wrong patch per requirement, violating exactly that requirement; mutmut on changed lines as a bonus</td><td>Every requirement has a killed mutant; survivors are argued equivalent (logged) or trigger test repair</td></tr>
+<tr><td><strong>G6h</strong> Held-out check</td><td>Independently written wrong patches that never feed the repair loop, plus one valid alternative implementation per ticket</td><td>Measurement: wrong patches accepted by the initial grader vs the final grader; the valid alternative must pass the final grader. This is the headline result.</td></tr>
+<tr><td><strong>G7</strong> Traceability</td><td>Requirement ↔ test ↔ mutant links</td><td>Every requirement has a test and a killed mutant; every test cites a requirement</td></tr>
+<tr><td><strong>G8</strong> Novelty</td><td>Not present in upstream main, docs, changelog, or open PR/issue titles</td><td>No match (grep plus model check, logged)</td></tr>
+<tr><td><strong>G9</strong> Realism</td><td>Rubric: stakeholder reason, fit with click's design</td><td>Above threshold; human sign-off for showcase pairs</td></tr>
+</tbody></table></div>
+
+<h3>Pivot probe and differential search (G5)</h3>
+<div class="callout"><strong>Rule</strong>Two patches disagreeing only proves they differ. Expected outcomes always come from the frozen tickets, never from a reference's output.</div>
+<p>Example: ticket A says "report the first invalid value", ticket B says "report all invalid values". If the patches also differ in punctuation, naive differential search finds and tests the punctuation. The cross-grade looks perfect while neither grader checks two invalid values. So G5 needs three things:</p>
+<ol>
+<li><strong>A pivot probe:</strong> an input that exercises the changed rule (here, two invalid values in a known order). Written in the contract stage with the feature's input grammar.</li>
+<li><strong>Ticket-derived expectations:</strong> for each ticket, a separate model call that sees only that ticket and the probe writes the expected outcome as semantic assertions. A: only the first invalid value is reported. B: both are, in order. Anything the ticket leaves open, such as wording or punctuation, stays unasserted.</li>
+<li><strong>Replay through both real patched copies of click:</strong> show what each reported, confirm A meets A's assertions and fails B's and vice versa, then export the assertions as tests into both graders.</li>
+</ol>
+<p>Differential search then acts as a lead finder, not an oracle:</p>
+<ul>
+<li>Each reference gets its own worktree and a worker process that reads <code>{argv, env, input}</code> JSON lines and returns <code>{exit_code, output, exception_type}</code> via <code>click.testing.CliRunner</code>. Hypothesis generates invocations from the grammar and sends each to both.</li>
+<li>Hypothesis shrinks a disagreement to a small example (not guaranteed shortest). The example is classified against the tickets:
+  <ul><li><span class="pill chosen">On the pivot</span> a candidate extra probe, with expectations again written from the tickets;</li>
+  <li><span class="pill fail">On a shared clause</span> one reference breaks the shared contract, a bug to repair;</li>
+  <li><span class="pill open">Left open</span> by the tickets: ignored and logged.</li></ul></li>
+<li>Every saved case is replayed in fresh processes before it counts, to rule out state leaking between workers.</li>
+<li>If the budget runs out with no pivot difference, record "no distinguishing case found within budget" and reject the pair.</li>
+<li>The demo button reads "Find a small difference".</li>
+</ul>
+
+<h3>Three-way diagnosis (stage 7)</h3>
+<p>When the blind solver's patch fails a grader:</p>
+<ol>
+<li>Differential search between the solver patch and the reference gives a small disagreeing input.</li>
+<li>An AI judge sees only the ticket, that input and both outputs, and answers whether the ticket determines the correct output.</li>
+<li>Classify:
+<ul>
+<li><span class="pill fail">Solver mistake</span> The ticket determines the output and the solver is wrong. The task stays as is.</li>
+<li><span class="pill open">Grader mistake</span> The ticket allows the solver's behaviour. Fix or relax the test and re-run the gauntlet.</li>
+<li><span class="pill chosen">Ambiguous ticket</span> The ticket doesn't decide it. Offer two fixes: add the missing clause, or accept either outcome. Never silently invent a rule.</li>
+</ul></li>
+<li>Verdicts are logged with the counterexample; showcase pairs get a human check.</li>
+</ol>
+<p>A blind solver that passes is solvability evidence without the reference.</p>
+
+<h2 id="variation"><span class="n">9</span>Variation strategy</h2>
+<p>Candidate behaviour families for click. Each pair must pass the novelty gate against current click source.</p>
+<div class="tbl"><table>
+<thead><tr><th>Family</th><th>Example policy pair (verify novelty)</th></tr></thead>
+<tbody>
+<tr><td>Conflict resolution</td><td>Mutually exclusive options: error vs last one wins</td></tr>
+<tr><td>Source precedence</td><td>Env var vs default vs flag: which wins when combined with a new source</td></tr>
+<tr><td>Repetition / accumulation</td><td>Repeated option: accumulate vs override vs error after N</td></tr>
+<tr><td>Validation &amp; errors</td><td>Report the first invalid value vs collect all invalid values</td></tr>
+<tr><td>Lifecycle / ordering</td><td>Chained subcommand failure: stop the chain vs run the rest and report</td></tr>
+<tr><td>Deprecation / compatibility</td><td>Deprecated alias: warn and accept vs reject with a hint</td></tr>
+<tr><td>Retry / interaction</td><td>Prompt on invalid input: re-prompt N times vs fail immediately</td></tr>
+</tbody></table></div>
+<ul>
+<li>A pair varies one rule. A batch varies families. The final set covers at least 5 families, shown as a coverage grid.</li>
+<li>A twin pair counts as one feature when claiming variation.</li>
+<li>Measured: distinct files and functions touched across reference patches; overlap of shared-clause tests between pairs from different families (should be near zero).</li>
+<li>Cross-grade separation among accepted pairs is 100% by construction, so it is reported as a gate, not a result. The held-out check (G6h) is the result.</li>
+</ul>
+
+<h2 id="sensitivity"><span class="n">10</span>Requirement-sensitivity experiment</h2>
+<p>Give tickets A and B to a solver model in separate blind runs; neither sees the twin, <code>pair_id</code> or hidden tests. Score in two steps:</p>
+<ol>
+<li><strong>Shared requirements:</strong> does each patch meet the shared clauses? Failures here are plain failures and drop out of step 2.</li>
+<li><strong>Changed rule:</strong> run both patches on the pivot probe and score each against its own ticket's assertions.</li>
+</ol>
+<div class="matrix" role="table" aria-label="Expected cross-grade pattern">
+  <div class="h"></div><div class="h">Grader A</div><div class="h">Grader B</div>
+  <div class="h">Patch for A</div><div class="cell pass">Pass</div><div class="cell fail">Fail on pivot</div>
+  <div class="h">Patch for B</div><div class="cell fail">Fail on pivot</div><div class="cell pass">Pass</div>
+</div>
+<p>Report what is observable, not why: the diagonal pattern; "both patches produced the same outcome on the distinguishing case" and which ticket's rule it matches; or a patch passing both graders, which means investigate the graders. Per model: shared-clause pass rate, pivot pass rate, same-outcome rate and a few small reproducing invocations. Two models, one cheap and one strong, within budget.</p>
+
+<h2 id="package"><span class="n">11</span>Package layout</h2>
+<p>Provisional until the required package template is final. Each package separates what a solver may see from what only the evaluator sees.</p>
+<pre><code>packages/
+  click-&lt;family&gt;-&lt;slug&gt;-A/
+    task.md              # PUBLIC: the ticket, the only thing a solver gets besides the base repo
+    env/
+      Dockerfile         # pinned base image digest + locked dependencies
+      requirements.lock
+    evaluator/           # HIDDEN from solvers
+      meta.json          # repo, tag, base SHA, family, pivot clause, pair_id, twin_package, model + cost, gate results
+      solution.patch     # reference implementation
+      tests/test_feature.py  # grader; tests tagged new/preserved + requirement ids
+      regression.txt     # existing-suite command + excluded flaky tests
+      replay.sh          # rebuilds env and reproduces every result, no model calls
+      patches/
+        mutants/         # every G6 mutant
+        heldout/         # G6h wrong patches + valid alternative
+        solver/          # blind-solver patches per model
+      evidence/
+        matrix.json  probe.json  mutants.json  heldout.json  trace.json  logs/
+  click-&lt;family&gt;-&lt;slug&gt;-B/ ...
+pairs/&lt;slug&gt;.json        # links A/B, pivot probe, cross-grade matrix
+report/index.html        # static report, opens offline
+demo/run_demo.sh         # executable demo command</code></pre>
+<p><strong>Acceptance test:</strong> a teammate who didn't generate a package runs <code>replay.sh</code> on their own machine with model access disabled and gets identical results. Only fresh generation needs API calls.</p>
+
+<h2 id="demo"><span class="n">12</span>Demo script</h2>
+<ol>
+<li><strong>"We turn a real repository into new, runnable coding tasks."</strong> One command on pinned click. Show the commit, the surface the factory found and the two generated tickets, with the one differing sentence highlighted.</li>
+<li><strong>Basic validation matrix:</strong> existing tests pass on base, feature tests fail on base, the reference passes both.</li>
+<li><strong>The innovation:</strong> the viewer reads the changed sentence and predicts the result; the factory replays the pivot probe through both real patched copies and confirms each matches its ticket. Then milestone M1: a wrong patch the initial grader accepted, the case the factory found, and the improved grader rejecting it while a different valid solution still passes.</li>
+<li><strong>Break the grader:</strong> a viewer types a click invocation and both patched versions run side by side. "Find a small difference" shrinks and replays it in fresh processes, then exports it as a pytest file and runs it.</li>
+<li><strong>Fairness:</strong> the blind solver's patch and one example of each diagnosis.</li>
+<li><strong>A second family:</strong> a different kind of rule, to show it isn't one template.</li>
+<li><strong>Numbers:</strong> packages generated, gate pass and reject rates with reasons, held-out result, mutant kill rate, requirement sensitivity of 2 models, cost per package.</li>
+<li><strong>Limitations</strong> (§17), stated plainly.</li>
+</ol>
+<p>A recorded backup video of the full demo is mandatory.</p>
+
+<h2 id="stack"><span class="n">13</span>Architecture &amp; stack</h2>
+<ul>
+<li><strong>Orchestrator:</strong> Python 3.12 CLI: <code>factory generate</code>, <code>validate</code>, <code>export</code>, <code>report</code>. Run state as JSON files per pair; no database.</li>
+<li><strong>Repo adapter:</strong> one file for click covering clone/pin, Docker image, test command, worker harness, public-API rules and discovery hints. A second repo means a second adapter file and nothing else.</li>
+<li><strong>Sandbox:</strong> Docker per run, network off during tests, clean worktree per patch.</li>
+<li><strong>Model calls:</strong> one <code>llm(prompt, model)</code> function, model names in config, token and cost logging on every call, a hard cost cap per pair.</li>
+<li><strong>Search:</strong> Hypothesis for generation and shrinking; one worker process per worktree; fresh-process replay before a case counts.</li>
+<li><strong>Mutation:</strong> requirement-targeted LLM mutants (required), mutmut on changed files (bonus).</li>
+<li><strong>Demo page:</strong> a small Streamlit app over the same functions.</li>
+<li><strong>Report:</strong> static HTML generated from the JSON evidence.</li>
+</ul>
+<p>Reused open source, to list in the README: click, pytest, Hypothesis, mutmut, Docker, Streamlit, the model provider's SDK.</p>
+
+<h2 id="team"><span class="n">14</span>Team split</h2>
+<div class="tbl"><table>
+<thead><tr><th>Member</th><th>Owns</th><th>Answers</th></tr></thead>
+<tbody>
+<tr><td>1 · Repo &amp; execution</td><td>Adapter, Docker, baseline, worker harness, G0–G4, export, offline replay</td><td>Can anyone reproduce this exact result from the starting commit?</td></tr>
+<tr><td>2 · Features &amp; contracts</td><td>Surface map, seed and policy proposals, contracts, tickets, pivot probes, novelty and realism gates, family coverage</td><td>Are these realistic tickets, and can a developer tell what each one allows?</td></tr>
+<tr><td>3 · Search &amp; validation</td><td>Ticket-derived expectations, differential search, shrinking, cross-grading, mutants, traceability</td><td>What is the smallest observable case that separates these behaviours?</td></tr>
+<tr><td>4 · Independent evaluation &amp; demo</td><td>Blind solver, diagnosis, held-out patches, sensitivity experiment, demo page, report, video</td><td>Does it hold up on evidence its authors didn't design around, and can a judge inspect it?</td></tr>
+</tbody></table></div>
+<p>Member 4 never writes reference patches for showcase packages, so they act as an independent reviewer.</p>
+
+<h2 id="plan"><span class="n">15</span>Day-by-day plan</h2>
+<div class="tbl"><table>
+<thead><tr><th>Dates</th><th>Milestone</th></tr></thead>
+<tbody>
+<tr><td class="num">24–25 Nov</td><td>Adapter, Docker and G0 green; worker harness; <code>llm()</code>; one hand-made golden pair end to end to fix file formats</td></tr>
+<tr><td class="num">26–28 Nov</td><td>Stages 1–5 automated; G1–G4 automated; first generated pair passes</td></tr>
+<tr><td class="num">29 Nov – 1 Dec</td><td>Pivot probes, differential search and cross-grade (G5); mutants and traceability (G6–G7); novelty and realism (G8–G9)</td></tr>
+<tr><td class="num">by 1 Dec</td><td><div class="milestone" style="margin:0"><strong>Milestone M1.</strong> One automatically generated pair where the initial grader accepts a plausible wrong patch, the factory finds the missing case, and the improved grader rejects that patch while accepting a different valid solution. Before and after runs saved. This comes before scaling to more pairs.</div></td></tr>
+<tr><td class="num">2–3 Dec</td><td>Blind solver and diagnosis; held-out check; sensitivity experiment on 2 models. 2 Dec: confirm anything still open.</td></tr>
+<tr><td class="num">4 Dec</td><td>Generate the final batch (8–12 pairs, at least 5 families); export in the final template; report; demo page</td></tr>
+<tr><td class="num">5–6 Dec</td><td>Freeze; README with setup, run, architecture, reused components and limitations; replay test on a second machine; backup video; submit</td></tr>
+<tr><td class="num">After 15 Dec</td><td>Stretch: adaptive follow-ups that use surviving solver mistakes to generate targeted pairs, measured on held-out pairs</td></tr>
+</tbody></table></div>
+
+<h2 id="metrics"><span class="n">16</span>Metrics in the evidence report</h2>
+<ul>
+<li>Pairs attempted, accepted and rejected, with the rejecting gate for each</li>
+<li>Basic validation matrix per package (all must pass)</li>
+<li><strong>Held-out result (headline):</strong> wrong patches accepted by initial vs final graders; valid alternatives accepted by final graders</li>
+<li>Pivot probes per pair; small-counterexample length; pairs rejected as "no distinguishing case found within budget"</li>
+<li>Mutant kill rate per requirement; equivalent mutants with justification</li>
+<li>Blind-solver pass rate; diagnosis counts (solver, grader, ambiguity)</li>
+<li>Requirement sensitivity per model</li>
+<li>Family coverage grid and patch diversity</li>
+<li>Tokens and cost per accepted package; wall time per stage</li>
+</ul>
+
+<h2 id="limits"><span class="n">17</span>Limitations to state in the write-up</h2>
+<ul>
+<li>One repo validated end to end. Carrying over means writing an adapter, done for one (or two) repos.</li>
+<li>The AI judge in diagnosis can be wrong. Showcase verdicts are human-checked; the rest are logged as model judgments.</li>
+<li>Ticket-derived expectations come from a model reading the ticket. They're checked against both references and showcase probes are human-reviewed, but a shared misreading is possible.</li>
+<li>Differential search only explores the declared input grammar; a difference outside it can be missed. Shrunk examples are small, not guaranteed shortest.</li>
+<li>LLM mutants approximate real solver mistakes but don't cover them all.</li>
+<li>Feature realism is partly a judgement call; the rubric and human sign-off reduce that, not remove it.</li>
+<li>The sensitivity experiment covers few models and pairs. It's a demonstration, not a benchmark result.</li>
+</ul>
+
+<h2 id="builder"><span class="n">18</span>Left to the builder</h2>
+<ul>
+<li>Prompt wording, repair-loop details, exact thresholds (realism score, cost cap, Hypothesis example budget)</li>
+<li>Internal module layout of the orchestrator</li>
+<li>Which 8–12 policy pairs make the final set, within the family rules</li>
+<li>Styling of the report and demo page</li>
+</ul>
+
+<h2 id="calls"><span class="n">19</span>Calls made in this design</h2>
+<ul>
+<li><strong>Starting commit:</strong> the provided starter kit is the authority for the base revision, export format and benchmark protocol. If it names a click revision, record and pin it. If not, pin click's latest stable release on 24 Nov.</li>
+<li><strong>Novelty scope (G8):</strong> upstream main (not just our tag), docs, changelog, and open PR/issue titles. Anything that landed after our tag counts as existing.</li>
+<li><strong>Twins and variation:</strong> a twin pair counts as one feature. Variation is claimed from the spread of families and features; twins are validation and sensitivity evidence. A and B stay standalone packages.</li>
+<li><strong>Twin link survives any template:</strong> each package's <code>meta.json</code> carries <code>pair_id</code>, <code>twin_package</code> and <code>pivot_clause</code>, kept out of the solver's view.</li>
+<li><strong>Budget fallbacks, in cut order:</strong> (1) drop mutmut, keep LLM mutants; (2) sensitivity experiment on one model; (3) blind solver on the same model as the references, with a fresh context and only the ticket; (4) cut the target to 6 pairs.</li>
+</ul>
+
+<h2 id="open"><span class="n">20</span>Open items</h2>
+<ul>
+<li>Which model provider the credits cover, and how much. Fallbacks in §19 apply if the budget is small.</li>
+<li>Base revision and export template: take from the provided starter kit.</li>
+</ul>
+<p>Settled: team of 4, split as in §14.</p>
+
+<footer>Prior work this design builds on and differs from: SWE-smith, SWE-Gym, R2E-Gym, FEA-Bench, SWE-Dev, NoCode-bench, FeatureBench, and OpenAI's SWE-bench Verified audit.</footer>
+</main>
+</div>
