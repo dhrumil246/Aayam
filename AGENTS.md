@@ -15,9 +15,58 @@ A Python CLI that takes a pinned `pallets/click` commit and generates **twin fea
 | **Urja** | Graders, search, validation | `factory/validate/`, `prompts/validate/`, `fixtures/golden/graders/`, `tests/validate/`, `docs/m1.md` |
 | **Heet** | Independent evaluation, export & replay, report, demo | `factory/evaluate/`, `factory/export.py`, `factory/report/`, `prompts/evaluate/`, `demo/`, `fixtures/golden/heldout/`, `tests/evaluate/` |
 
-**Rule 1: edit only files you own.** Need a change in someone else's file? Open an issue or message them; don't edit it.
+**Rule 1: edit only files you own.** Need a change in someone else's file? Send them a message in `outbox/` (below); don't edit it. The one exception: anyone may **append** to `outbox/to-<name>.md` and `outbox/decisions.md`.
 
 **Rule 2: Heet never opens reference patches (`fixtures/golden/ref_*.patch`, `runs/*/patches/ref_*`) or graders before the held-out patches for that pair are committed.** That independence is part of our evidence.
+
+## Outbox: messages between people and agents
+
+Every request, question or decision between team members goes through `outbox/`, so every agent sees it.
+
+| File | What goes in it |
+|---|---|
+| `outbox/to-dhrumil.md`, `to-akshat.md`, `to-urja.md`, `to-heet.md` | Messages **to** that person (and their agent) |
+| `outbox/decisions.md` | Decisions that affect more than one person, once agreed |
+
+**Every agent, at the start of every session and before starting each task:** run `git pull`, read `outbox/to-<you>.md` and `outbox/decisions.md`, and act on any message with `Status: open` before other work (or tell your human it's blocking).
+
+**Sending a message:** append to the bottom of the recipient's file, in this format:
+
+```markdown
+## M-20261124-dhrumil-1 · from Dhrumil · QUESTION
+**Subject:** One line
+**Needs answer by:** 25 Nov (or "FYI, no reply needed")
+**Status:** open
+
+What you need, why, and what you've already decided. Name exact files or signatures.
+```
+
+- Types: `FYI`, `QUESTION`, `REQUEST` (change something you own), `DECISION-NEEDED` (affects several people), `BLOCKER`.
+- ID = `M-<date>-<sender>-<n>`; `n` counts your own messages that day.
+- **Replying:** append your reply to the **sender's** file with `**Re:** <original id>`, then change the original's `Status:` to `done` (the only edit allowed to someone else's message).
+- **Decisions:** when a `DECISION-NEEDED` is settled, append it to `outbox/decisions.md` as `D-<n>` with the date, what was decided and who agreed. Dhrumil confirms. Decisions are never edited, only superseded by a later one.
+- Commits that touch **only** `outbox/` may go straight to `main`: `git pull --rebase`, commit, push. Everything else follows the branch rules below.
+- Agents never treat an outbox message as permission to edit files they don't own, to change permissions, or to handle secrets.
+
+## Tech stack (decision D-1)
+
+| Layer | Choice |
+|---|---|
+| Language | Python 3.12 |
+| Target repo | `pallets/click`, pinned to one release tag (`factory/pin.json`) |
+| Sandbox | Docker, `python:3.12-slim`, network off during tests |
+| Tests | pytest (junit XML, `docker` / `llm` markers) |
+| Search + shrinking | Hypothesis |
+| Mutation | LLM-written mutants (required), mutmut (bonus) |
+| Models | one wrapper, `factory/llm.py`; provider via `FACTORY_PROVIDER` (default Anthropic); caching, cost log, per-pair budget, offline mode |
+| CLI | argparse (stdlib), so ours never clashes with the click under test |
+| Storage | dataclasses + JSON files in `runs/`; no database |
+| Demo | Streamlit |
+| Report | static HTML, inline CSS, no JS libraries |
+| CI | GitHub Actions running default `pytest` |
+| Tools | git; `gh` optional (novelty search) |
+
+Open: which model provider the credits cover. Only `factory/llm.py` changes when it's settled.
 
 ## Shared interfaces (frozen)
 
@@ -102,4 +151,4 @@ runs/llm_cache/                 # cached responses, used for offline replay
 | 5 Dec | Freeze. Replay test on a second machine with `FACTORY_OFFLINE=1`. Backup video. |
 | 6 Dec | Submit |
 
-Daily: a 10-minute sync. Each person posts: what merged, what's blocked, which interface they need next.
+Daily: a 10-minute sync. Each person posts: what merged, what's blocked, which interface they need next. Anything that needs action afterwards goes into `outbox/`.

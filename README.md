@@ -7,6 +7,7 @@ We turn `pallets/click` into new, runnable feature tasks. Tasks come in **twins*
 ## Start here (team)
 
 1. Read [AGENTS.md](AGENTS.md): who owns which files, shared interfaces, branch and test rules, key dates.
+   Then read your messages in [outbox/](outbox/) (`to-<your-name>.md` and `decisions.md`). Check them at the start of every session.
 2. Read your own plan and hand it to your coding agent:
 
    | Person | Role | Plan |
