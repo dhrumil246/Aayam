@@ -63,7 +63,9 @@ What you need, why, and what you've already decided. Name exact files or signatu
 | Storage | dataclasses + JSON files in `runs/`; no database |
 | Demo | Streamlit |
 | Report | static HTML, inline CSS, no JS libraries |
-| CI | GitHub Actions running default `pytest` |
+| CI | GitHub Actions: fast, key-free `pytest` on every PR, plus a Docker `twin-replay` job (no secrets) when runner, gates, export, validation, `docker/` or golden files change (D-2) |
+| Pinning | click commit SHA, base image by `@sha256` digest, hashed `docker/requirements.lock`; all in `factory/pin.json` + `docker/` (D-2) |
+| Replay | `python -m factory replay` and the Streamlit evidence screens share one runner (`export.replay`), which never imports `factory.llm` (D-2) |
 | Tools | git; `gh` optional (novelty search) |
 
 Open: which model provider the credits cover. Only `factory/llm.py` changes when it's settled.

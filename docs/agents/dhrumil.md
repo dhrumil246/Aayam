@@ -66,19 +66,22 @@
 
 ### Task 3: Click adapter + Docker image + G0
 
-**Files:** Create `factory/pin.json`, `factory/adapter_click.py`, `docker/click.Dockerfile`, `factory/gates_basic.py` (G0 only for now), `tests/infra/test_adapter.py`
+**Files:** Create `factory/pin.json`, `factory/adapter_click.py`, `docker/click.Dockerfile`, `docker/requirements.in`, `docker/requirements.lock`, `factory/gates_basic.py` (G0 only for now), `tests/infra/test_adapter.py`
 
 **Interfaces:**
 - Produces:
   - `adapter_click.PIN: RepoPin` (loaded from `pin.json`)
+  - `adapter_click.BASE_IMAGE: str` (`python:3.12-slim@sha256:...`, from `pin.json`)
   - `adapter_click.repo_dir(pin) -> Path` (clone cache at `runs/repos/<sha>/`)
   - `adapter_click.image(pin) -> str` (builds once, tag `factory-click:<sha[:12]>`)
   - `adapter_click.EXISTING_TESTS = "tests/"`, `adapter_click.FLAKY: list[str]` (filled from baseline)
   - `gates_basic.g0_baseline(pin: RepoPin) -> GateResult`
 
-- [ ] **Step 1: Pick the pin.** Starter-kit revision if given; else `git ls-remote --tags https://github.com/pallets/click` → latest stable. Write `pin.json` `{repo, tag, sha}`.
-- [ ] **Step 2: Write failing test** `test_g0_baseline` (`@pytest.mark.docker`): `g0_baseline(PIN).passed is True` and `detail["failed"] == []` after excluding `FLAKY`.
-- [ ] **Step 3: Implement.** Dockerfile: checkout at sha, `pip install -e . pytest hypothesis`. G0 runs the existing suite 3× and records any test that flips as `FLAKY` (written to `factory/flaky.json`).
+- [ ] **Step 1: Pick the pin.** Starter-kit revision if given; else `git ls-remote --tags https://github.com/pallets/click` → latest stable. Resolve the base image digest with `docker buildx imagetools inspect python:3.12-slim`. Write `pin.json` `{repo, tag, sha, base_image}` with `base_image` = `python:3.12-slim@sha256:<digest>`.
+- [ ] **Step 2: Write failing tests:**
+  - `test_pin_complete` (no Docker): `sha` is 40 hex chars, `base_image` contains `@sha256:`, the Dockerfile's `FROM` line equals `BASE_IMAGE`, and every line of `docker/requirements.lock` that names a package has `--hash=`.
+  - `test_g0_baseline` (`@pytest.mark.docker`): `g0_baseline(PIN).passed is True` and `detail["failed"] == []` after excluding `FLAKY`.
+- [ ] **Step 3: Implement.** Dockerfile: `FROM` the pinned digest, checkout click at `sha`, `pip install --require-hashes -r requirements.lock` (`pytest`, `hypothesis`; generated once with `pip-compile --generate-hashes docker/requirements.in`), then `pip install --no-deps -e .`. Never use a floating tag in `FROM`. G0 runs the existing suite 3× and records any test that flips as `FLAKY` (written to `factory/flaky.json`).
 - [ ] **Step 4: Run** `pytest -m docker tests/infra/test_adapter.py -v`. Expected: PASS.
 - [ ] **Step 5: Commit** `feat(adapter): pinned click image and G0 baseline`.
 
@@ -121,6 +124,24 @@
 - [ ] **Step 3: Implement.** `docker run -i` running `harness.py`, which reads JSON lines `{"argv","env","input"}`, runs `CliRunner(mix_stderr=False if supported).invoke(cli, ...)` and writes `{"exit_code","output","exception_type"}`. Recreate `cli` per call by re-executing `demo_app` (no state carried between calls).
 - [ ] **Step 4: Run.** Expected: PASS.
 - [ ] **Step 5: Commit** `feat(worker): persistent and fresh invocation runners`.
+
+### Task 5a: Twin replay integration test + CI Docker job (due 26 Nov)
+
+The first integration test: it proves the stack works together with no model at all. It also catches the worst silent bug: both sides accidentally running the same patch.
+
+**Files:** Create `tests/infra/test_twin_replay.py`; modify `.github/workflows/ci.yml`
+
+**Interfaces:**
+- Consumes: `sandbox.run_tests`, `worker.fresh_call`, golden fixtures (`ref_A/B.patch` from Akshat, `graders/test_A/B.py` from Urja, `contract_A/B.json`).
+
+- [ ] **Step 1: Write the test** `test_twin_replay_no_key` (`@pytest.mark.docker`). Unset `FACTORY_API_KEY`, set `FACTORY_OFFLINE=1`, and monkeypatch `factory.llm._call` to raise. Then for each side `S` with twin `T`:
+  - `run_tests(PIN, [ref_S], [grader_S]).failed == {}`
+  - `run_tests(PIN, [ref_S], [grader_T]).failed` contains a `test_new__<T's pivot id>__...` test, and that failure's kind is `"assertion"` (not `"missing_api"`, `"collection"` or `"error"`)
+  - `fresh_call(PIN, ref_A, demo, probe) != fresh_call(PIN, ref_B, demo, probe)`
+  - the sha256 of `ref_A.patch` and `ref_B.patch` differ
+- [ ] **Step 2: Run** `pytest -m docker tests/infra/test_twin_replay.py -v` from a clean clone. Expected: PASS. Paste the output in the PR.
+- [ ] **Step 3: Add a CI job** `twin-replay`: `runs-on: ubuntu-latest`, **no secrets passed**, runs `pytest -m docker tests/infra/test_twin_replay.py`. Trigger on PRs that touch `factory/sandbox.py`, `factory/worker.py`, `factory/gates_basic.py`, `factory/export.py`, `factory/validate/**`, `docker/**` or `fixtures/golden/**`. Keep the existing fast, key-free `pytest` job on every PR.
+- [ ] **Step 4: Commit** `test(infra): model-free twin replay and CI docker job`.
 
 ### Task 6: Basic gates G1–G4
 

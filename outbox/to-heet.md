@@ -21,3 +21,14 @@ Before we start, this is the stack we're using (full table in `AGENTS.md` → "T
 For you specifically: the demo is Streamlit and the report is static HTML with no JS libraries, so both work offline. If you want a different demo framework, raise it now.
 
 **Reply** in `outbox/to-dhrumil.md` with `**Re:** M-20261124-dhrumil-3`: "confirmed", or the concern plus what you'd use instead. Then set this message's Status to `done`.
+
+## M-20261124-dhrumil-4 · from Dhrumil · REQUEST
+**Subject:** Replay must be model-free and shared with the demo (D-2)
+**Needs answer by:** FYI unless you disagree; applies to your Task 7 and Task 9
+**Status:** open
+
+Your plan (`docs/agents/heet.md`) now says:
+- `export.replay` must **never import `factory.llm`**. It works from saved patches, tests, inputs and expected outcomes only. New test: `test_replay_never_imports_llm` (Task 7, Step 3b). `test_replay_offline` now also unsets `FACTORY_API_KEY`.
+- The Streamlit evidence screens call the same `export.replay`; no second runner in `demo/`.
+
+Reply in `to-dhrumil.md` only if this causes a problem.

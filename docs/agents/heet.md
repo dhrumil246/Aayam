@@ -18,6 +18,7 @@
 - Sensitivity results are reported as observations ("both patches produced the same outcome on the distinguishing case"), never as reasons ("the model ignored the sentence").
 - Demo button label: **"Find a small difference"**.
 - The report, the demo and `replay` must work with `FACTORY_OFFLINE=1` from saved files only.
+- **`replay` never imports `factory.llm`.** It runs only on saved patches, tests, inputs and expected outcomes, so a missing cache entry can never turn a replay into a paid call. The Streamlit evidence screens and `python -m factory replay` call the **same** `export.replay` function; don't write a second runner in `demo/`.
 - Export copies reference patches into packages. That's allowed by Rule 2 because export runs only on **accepted** pairs, whose held-out patches are already committed.
 
 ## Review Focus
@@ -115,7 +116,8 @@ Consumes: `sandbox.run_tests`, `worker.fresh_call`, `search.diff_search`, `expec
 
 - [ ] **Step 1: Failing test** `test_export_layout`: export the golden pair; assert `task.md` is the only file outside `env/` and `evaluator/`, and it contains no `pair_id`, no "twin" and no other side's pivot text. `evaluator/meta.json` has `pair_id`, `twin_package`, `pivot_clause`.
 - [ ] **Step 2: Failing test** `test_export_bundles_patches`: `evaluator/patches/` contains every mutant, held-out and solver patch recorded for the pair, and `replay.sh` is executable.
-- [ ] **Step 3: Failing test** `test_replay_offline` (`@pytest.mark.docker`): with `FACTORY_OFFLINE=1` and `runs/llm_cache` deleted, `replay(pkg)["matches"] is True`. Changing one stored outcome in `evidence/probe.json` makes it `False` with a diff naming that file.
+- [ ] **Step 3: Failing test** `test_replay_offline` (`@pytest.mark.docker`): with `FACTORY_API_KEY` unset, `FACTORY_OFFLINE=1` and `runs/llm_cache` deleted, `replay(pkg)["matches"] is True`. Changing one stored outcome in `evidence/probe.json` makes it `False` with a diff naming that file.
+- [ ] **Step 3b: Failing test** `test_replay_never_imports_llm`: run `replay` in a subprocess after `sys.modules["factory.llm"] = None` (any import of it then raises `ImportError`); it still returns `matches: True`.
 - [ ] **Step 4: Implement.** `env/Dockerfile` pins the base image digest and installs from `requirements.lock`. `replay.sh` = `FACTORY_OFFLINE=1 python -m factory replay "$(dirname "$0")"`. `replay` re-runs, from saved files only: the basic matrix (G1–G3), the probe, every mutant, held-out and solver patch, then compares against `evidence/`.
 - [ ] **Step 5: Run, then commit** `feat(export): packages and offline replay`.
 - [ ] **Step 6 (4 Dec):** when the required package template is final, adapt `export_pair` only. Then the 5 Dec replay check: Dhrumil replays 3 random packages on their machine with `FACTORY_OFFLINE=1`; save the output to `report/replay_check.txt`.

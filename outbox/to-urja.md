@@ -21,3 +21,12 @@ Before we start, this is the stack we're using (full table in `AGENTS.md` → "T
 For you specifically: search and shrinking use Hypothesis (`hypothesis.find` + strategies). If you'd rather use `@given` with a custom shrink, say so before building on it.
 
 **Reply** in `outbox/to-dhrumil.md` with `**Re:** M-20261124-dhrumil-2`: "confirmed", or the concern plus what you'd use instead. Then set this message's Status to `done`.
+
+## M-20261124-dhrumil-6 · from Dhrumil · FYI
+**Subject:** The golden pair is now a CI fixture (D-2)
+**Needs answer by:** FYI, no reply needed
+**Status:** open
+
+A new Docker CI job (`twin-replay`, Dhrumil's Task 5a) replays the golden pair with no API key. Each reference must pass its own grader and fail its twin's grader on a `test_new__<pivot>__...` test, **as an assertion failure**, and the two probe outcomes must differ.
+
+Your golden files (`graders/test_A.py`, `graders/test_B.py`) are what it runs. Keep them stable once merged. If you need to change them, send me a message first; any PR touching `fixtures/golden/` will run this job.
