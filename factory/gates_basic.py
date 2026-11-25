@@ -15,7 +15,13 @@ def _failed_ids(rows: list[dict]) -> set[str]:
 
 def g0_baseline(pin: RepoPin, runs: int = 3) -> GateResult:
     """Existing suite on the unpatched pin, run `runs` times. Tests that flip are recorded as FLAKY."""
-    results = [_failed_ids(sandbox._run_pytest(pin, None, [adapter_click.EXISTING_TESTS])[0]) for _ in range(runs)]
+    results = []
+    for _ in range(runs):
+        rows, _log, code = sandbox._run_pytest(pin, None, [adapter_click.EXISTING_TESTS])
+        if code not in (0, 1):
+            return GateResult("G0", passed=False, detail={"failed": ["<pytest did not complete>"],
+                                                          "exit_code": code, "flaky": [], "runs": runs})
+        results.append(_failed_ids(rows))
     always = set.intersection(*results)
     flaky = set.union(*results) - always
     adapter_click.save_flaky(sorted(set(adapter_click.FLAKY) | flaky))
@@ -49,7 +55,7 @@ def g1_fail_before(pair: Pair, side: str) -> GateResult:
         "bad_failures": {t: k for t, k in run.failed.items() if k not in ("assertion", "missing_api")},
         "new_passing_on_base": sorted(t for t in run.passed if kind[t] == "new"),
         "preserved_failing_on_base": sorted(t for t in run.failed if kind[t] == "preserved"),
-        "unnamed": sorted(t for t in ids if kind[t] == "other" and t not in run.failed),
+        "unnamed": sorted(t for t in ids if kind[t] == "other" and "::" in t),
         "new_failed": sorted(t for t in run.failed if kind[t] == "new"),
         "log": run.log_path,
     }

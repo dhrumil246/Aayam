@@ -5,6 +5,7 @@ import json
 import select
 import subprocess
 import tempfile
+import uuid
 from dataclasses import asdict
 from pathlib import Path
 
@@ -28,17 +29,21 @@ class Worker:
                 raise ValueError(f"patch does not apply: {proc.stderr.strip()}")
         (root / "demo").mkdir()
         (root / "demo" / "app.py").write_text(demo_app)
-        self._cmd = ["docker", "run", "-i", "--rm", "--network", "none",
-                     "-v", f"{self._work}:/work/click", "-v", f"{root / 'demo'}:/demo:ro",
-                     "-v", f"{sandbox.PLUGIN_DIR}:/factory:ro",
-                     adapter_click.image(pin), "python", "-u", "/factory/harness.py"]
+        self._image = adapter_click.image(pin)
+        self._name: str | None = None
+        self._root = root
         self._proc: subprocess.Popen | None = None
 
     STARTUP_GRACE = 5.0  # seconds; container start-up is not the demo app's fault
 
     def _start(self) -> tuple[subprocess.Popen, bool]:
         if self._proc is None or self._proc.poll() is not None:
-            self._proc = subprocess.Popen(self._cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+            self._name = f"factory-{uuid.uuid4().hex[:12]}"
+            cmd = ["docker", "run", "-i", "--rm", "--name", self._name, "--network", "none",
+                   "-v", f"{self._work}:/work/click", "-v", f"{self._root / 'demo'}:/demo:ro",
+                   "-v", f"{sandbox.PLUGIN_DIR}:/factory:ro",
+                   self._image, "python", "-u", "/factory/harness.py"]
+            self._proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                           stderr=subprocess.DEVNULL, text=True, bufsize=1)
             return self._proc, True
         return self._proc, False
@@ -55,6 +60,9 @@ class Worker:
         return Outcome(**json.loads(line))
 
     def _kill(self) -> None:
+        if self._name is not None:
+            sandbox.kill_container(self._name)  # killing the docker client alone leaves the container running
+            self._name = None
         if self._proc is not None:
             self._proc.kill()
             self._proc.wait()

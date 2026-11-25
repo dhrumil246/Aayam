@@ -18,4 +18,5 @@ def pytest_collectreport(report):
 def pytest_runtest_logreport(report):
     if report.when == "call" or report.outcome != "passed":
         _write({"nodeid": report.nodeid, "when": report.when, "outcome": report.outcome,
+                "xfail": hasattr(report, "wasxfail"),
                 "longrepr": str(report.longrepr) if report.failed else ""})

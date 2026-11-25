@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from factory import adapter_click
 from factory.adapter_click import PIN
 from factory.schema import Invocation, Outcome
 from factory.worker import Worker, fresh_call
@@ -65,3 +66,13 @@ def test_timeout_then_recovers():
         assert w.call(Invocation(["--wait"]), timeout=3) == Outcome(-1, "", "Timeout")
         assert time.monotonic() - t < 6
         assert w.call(Invocation([])).output == "ok\n"
+
+
+def test_timeout_kills_container():
+    import subprocess
+    demo = "import click\n@click.command()\ndef cli():\n    while True:\n        pass\n"
+    with Worker(PIN, None, demo) as w:
+        assert w.call(Invocation([]), timeout=2).exception_type == "Timeout"
+        time.sleep(1)
+        assert subprocess.run(["docker", "ps", "-q", "--filter", f"ancestor={adapter_click.image(PIN)}"],
+                              capture_output=True, text=True).stdout.strip() == ""

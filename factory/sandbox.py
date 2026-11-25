@@ -16,24 +16,36 @@ from factory.schema import RepoPin, TestRun
 PLUGIN_DIR = adapter_click.ROOT / "docker"
 
 
-def _run_pytest(pin: RepoPin, workdir: Path | None, args: list[str], timeout: int = 900) -> tuple[list[dict], str]:
+def kill_container(name: str) -> None:
+    subprocess.run(["docker", "kill", name], capture_output=True)
+
+
+def _run_pytest(pin: RepoPin, workdir: Path | None, args: list[str],
+                timeout: float = 900) -> tuple[list[dict], str, int | None]:
     """Run `pytest <args>` in the pinned image with the network off.
 
     workdir, if given, is a patched click checkout mounted over /work/click.
-    Returns (report rows from docker/report_plugin.py, combined log text).
+    Returns (report rows from docker/report_plugin.py, combined log, pytest exit code).
+    Exit code None means the run timed out; its container is killed.
     """
+    name = f"factory-{uuid.uuid4().hex[:12]}"
     with tempfile.TemporaryDirectory() as out:
-        cmd = ["docker", "run", "--rm", "--network", "none",
+        cmd = ["docker", "run", "--rm", "--name", name, "--network", "none",
                "-v", f"{PLUGIN_DIR}:/factory:ro", "-v", f"{out}:/out",
                "-e", "PYTHONPATH=/factory", "-e", "FACTORY_REPORT=/out/report.jsonl"]
         if workdir is not None:
             cmd += ["-v", f"{Path(workdir).resolve()}:/work/click"]
         cmd += [adapter_click.image(pin), "python", "-m", "pytest", "-p", "report_plugin",
                 "-p", "no:cacheprovider", "-q", *args]
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            code, text = proc.returncode, proc.stdout + proc.stderr
+        except subprocess.TimeoutExpired:
+            kill_container(name)
+            code, text = None, f"pytest timed out after {timeout}s; container {name} killed"
         report = Path(out) / "report.jsonl"
         rows = [json.loads(l) for l in report.read_text().splitlines()] if report.exists() else []
-    return rows, proc.stdout + proc.stderr
+    return rows, text, code
 
 
 _MISSING_API = {"AttributeError", "ImportError", "ModuleNotFoundError", "NoSuchOption"}
@@ -77,37 +89,45 @@ def _log(pair_id: str | None, text: str) -> str:
 
 
 def run_tests(pin: RepoPin, patches: list[str], test_files: list[str] | None = None, repeat: int = 1,
-              pair_id: str | None = None) -> TestRun:
+              pair_id: str | None = None, timeout: float = 900) -> TestRun:
     """Apply `patches` to a clean pinned checkout and run pytest in Docker.
 
     test_files=None runs click's existing suite (FLAKY / ENV_EXCLUDED ignored);
     otherwise the files are copied to _feature_tests/ and only they run.
     With repeat > 1 a test counts as passed only if it passed every time.
+    A run that times out or crashes pytest (exit code not 0/1) marks every target "error".
+    In grader runs a skipped, xfailed or xpassed test is "error": it graded nothing.
     """
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp) / "click"
         _checkout(pin, work)
         log = []
+        targets = [f"_feature_tests/{Path(f).name}" for f in test_files] if test_files else [adapter_click.EXISTING_TESTS]
         for patch in patches:
             proc = subprocess.run(["git", "apply", str(Path(patch).resolve())], cwd=work, capture_output=True, text=True)
             if proc.returncode != 0:
                 text = f"git apply failed for {patch}:\n{proc.stderr}"
-                targets = [f"_feature_tests/{Path(f).name}" for f in test_files] if test_files else [adapter_click.EXISTING_TESTS]
                 return TestRun(passed=[], failed={t: "error" for t in targets}, log_path=_log(pair_id, text))
         if test_files:
             (work / "_feature_tests").mkdir()
             for f in test_files:
                 shutil.copy(f, work / "_feature_tests" / Path(f).name)
-            args = [f"_feature_tests/{Path(f).name}" for f in test_files]
-        else:
-            args = [adapter_click.EXISTING_TESTS]
+        args = targets
 
         passed_every: set[str] | None = None
         failed: dict[str, str] = {}
         for _ in range(repeat):
-            rows, text = _run_pytest(pin, work, args)
+            rows, text, code = _run_pytest(pin, work, args, timeout=timeout)
             log.append(text)
-            passed = {r["nodeid"] for r in rows if r["when"] == "call" and r["outcome"] == "passed"}
+            collect_errors = any(r["when"] == "collect" for r in rows)
+            if code not in (0, 1) and not (code == 2 and collect_errors):  # timeout, crash, nothing collected
+                return TestRun(passed=[], failed={t: "error" for t in targets},
+                               log_path=_log(pair_id, "\n".join(log) + f"\npytest exit code: {code}"))
+            graded_nothing = {r["nodeid"] for r in rows if test_files and (r["outcome"] == "skipped" or r.get("xfail"))}
+            passed = {r["nodeid"] for r in rows
+                      if r["when"] == "call" and r["outcome"] == "passed"} - graded_nothing
+            for t in graded_nothing:
+                failed.setdefault(t, "error")
             for r in rows:
                 if r["outcome"] == "failed" and r["nodeid"] not in failed:
                     failed[r["nodeid"]] = "collection" if r["when"] == "collect" else (

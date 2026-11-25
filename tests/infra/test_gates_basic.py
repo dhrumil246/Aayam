@@ -97,3 +97,10 @@ def test_gates_on_probe_pair():
     assert gates_basic.g4_public_api(pair.graders["A"]).passed
     wrong = _pair(ref=str(DATA / "probe_41.patch"))
     assert not gates_basic.g2_pass_after(wrong, "A").passed
+
+
+def test_g1_unnamed_failing_test_fails_gate(monkeypatch):
+    odd = "_feature_tests/grader.py::test_odd"
+    _fake(monkeypatch, base=TestRun([PRES], {NEW: "assertion", odd: "assertion"}, ""), ref=TestRun([], {}, ""))
+    g = gates_basic.g1_fail_before(_pair(), "A")
+    assert not g.passed and g.detail["unnamed"] == [odd]

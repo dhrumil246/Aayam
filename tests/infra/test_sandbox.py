@@ -72,3 +72,29 @@ def test_classify():
     assert sandbox._classify("E   TypeError: bad\nx.py:3: TypeError") == "error"
     assert sandbox._classify("E   assert 41 == 42\nx.py:5: AssertionError") == "assertion"
     assert sandbox._classify("x.py:5: ValueError") == "error"
+
+
+def _containers() -> str:
+    import subprocess
+    return subprocess.run(["docker", "ps", "-q", "--filter", f"ancestor={adapter_click.image(PIN)}"], capture_output=True, text=True).stdout.strip()
+
+
+@pytest.mark.docker
+def test_crashed_pytest_is_error_not_pass():
+    run = sandbox.run_tests(PIN, [str(DATA / "broken_testing.patch")])
+    assert run.failed and set(run.failed.values()) == {"error"}
+
+
+@pytest.mark.docker
+def test_skip_and_xfail_count_as_error_in_graders():
+    run = sandbox.run_tests(PIN, [], [str(DATA / "grader_skips.py")])
+    bad = {t.split("::")[-1]: k for t, k in run.failed.items()}
+    assert bad == {"test_new__R1__skipped": "error", "test_new__R1__xfailed": "error", "test_new__R1__xpassed": "error"}
+    assert [t.split("::")[-1] for t in run.passed] == ["test_preserved__R2__runs"]
+
+
+@pytest.mark.docker
+def test_run_tests_timeout_kills_container():
+    run = sandbox.run_tests(PIN, [], [str(DATA / "grader_hang.py")], timeout=8)
+    assert set(run.failed.values()) == {"error"}
+    assert _containers() == ""
