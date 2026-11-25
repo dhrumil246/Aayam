@@ -102,6 +102,7 @@ class Patch:
 
 @dataclass
 class TestRun:
+    __test__ = False  # not a pytest test class
     passed: list[str]               # pytest node ids
     failed: dict[str, FailKind]     # node id -> why it failed
     log_path: str
