@@ -1,0 +1,12 @@
+diff --git a/src/click/__init__.py b/src/click/__init__.py
+index a34ab02..d11e5d3 100644
+--- a/src/click/__init__.py
++++ b/src/click/__init__.py
+@@ -142,3 +142,7 @@ def __getattr__(name: str) -> object:
+         return _get_text_stream
+ 
+     raise AttributeError(name)
++
++
++def factory_probe() -> int:
++    return 41

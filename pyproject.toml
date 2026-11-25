@@ -1,0 +1,27 @@
+[project]
+name = "aayam-factory"
+version = "0.1.0"
+description = "Twin-ticket task factory for pallets/click"
+requires-python = ">=3.12"
+dependencies = ["hypothesis>=6.100"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+llm = ["anthropic>=0.40"]
+demo = ["streamlit>=1.35"]
+mutation = ["mutmut>=3"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["factory*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not docker and not llm'"
+markers = [
+  "docker: needs a running Docker daemon",
+  "llm: makes real model calls (needs FACTORY_API_KEY)",
+]
