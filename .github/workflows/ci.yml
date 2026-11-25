@@ -16,3 +16,23 @@ jobs:
           python-version: "3.12"
       - run: pip install -e '.[dev]'
       - run: pytest
+
+  twin-replay:
+    # Decision D-2: model-free replay of the golden twin pair. No secrets on purpose.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: changed
+        run: |
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if git diff --name-only "$base" HEAD | grep -E '^(factory/(sandbox|worker|gates_basic|export|adapter_click)\.py|factory/validate/|docker/|fixtures/golden/|tests/infra/test_twin_replay\.py)'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.changed.outputs.run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - if: steps.changed.outputs.run == 'true'
+        run: pip install -e '.[dev]' && pytest -m docker tests/infra/test_twin_replay.py -v
