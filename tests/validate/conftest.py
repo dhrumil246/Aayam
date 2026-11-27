@@ -3,10 +3,12 @@
 Replace with `schema.load(Contract, "fixtures/golden/contract_A.json")` once
 Akshat's golden pair lands.
 """
+from pathlib import Path
+
 import pytest
 
 from factory import llm
-from factory.schema import Contract, Invocation, Requirement
+from factory.schema import Assertion, Contract, Invocation, Pair, Patch, RepoPin, Requirement, Seed
 
 DEMO_APP = '''import click
 
@@ -44,6 +46,57 @@ def make_contract(side: str = "A") -> Contract:
 @pytest.fixture
 def contract_a() -> Contract:
     return make_contract("A")
+
+
+GRADER_BODY = '''
+def test_new__R1__option_accepts_conflicts_with():
+    assert click.Option(["--a"], conflicts_with=["b"]).name == "a"
+
+
+def test_preserved__R2__single_flag_still_works():
+    @click.command()
+    @click.option("--json", "fmt", flag_value="json")
+    def plain(fmt):
+        click.echo(f"fmt={fmt}")
+    assert "fmt=json" in CliRunner().invoke(plain, ["--json"]).output
+
+
+def test_new__R3__unlisted_options_unaffected():
+    assert run([]).exit_code == 0
+'''
+
+EXPECT_A = [Assertion("R4", "usage error", "outcome.exit_code == 2"),
+            Assertion("R4", "names both", "'--json' in outcome.output and '--yaml' in outcome.output")]
+EXPECT_B = [Assertion("R4", "no error", "outcome.exit_code == 0"),
+            Assertion("R4", "last wins", "'fmt=yaml' in outcome.output")]
+
+
+def make_pair(tmp_path: Path) -> Pair:
+    """A conflict twin pair with real grader files on disk and fake reference patch paths."""
+    from factory.validate import grader
+
+    contracts = {"A": make_contract("A"), "B": make_contract("B")}
+    expectations = {"A": list(EXPECT_A), "B": list(EXPECT_B)}
+    graders = {}
+    for side, c in contracts.items():
+        path = tmp_path / f"test_{side}.py"
+        probe = grader.probe_test_source(expectations[side], c.probe, "R4")
+        path.write_text(grader.assemble(c, GRADER_BODY, [probe]))
+        graders[side] = str(path)
+    return Pair(
+        seed=Seed("conflict-format-flags", "conflict", "f", "error", "last wins", "ra", "rb"),
+        pin=RepoPin("pallets/click", "8.5.1", "cf19179"),
+        contracts=contracts,
+        tickets={"A": "ticket A: " + PIVOT_A, "B": "ticket B: " + PIVOT_B},
+        references={s: Patch(f"ref_{s}.patch", "reference", side=s) for s in ("A", "B")},
+        graders=graders,
+        expectations=expectations,
+    )
+
+
+@pytest.fixture
+def pair(tmp_path) -> Pair:
+    return make_pair(tmp_path)
 
 
 @pytest.fixture
