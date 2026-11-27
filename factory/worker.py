@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import json
-import select
+import queue
 import subprocess
 import tempfile
+import threading
 import uuid
 from dataclasses import asdict
 from pathlib import Path
@@ -33,6 +34,7 @@ class Worker:
         self._name: str | None = None
         self._root = root
         self._proc: subprocess.Popen | None = None
+        self._lines: queue.Queue[str] | None = None
 
     STARTUP_GRACE = 5.0  # seconds; container start-up is not the demo app's fault
 
@@ -45,6 +47,12 @@ class Worker:
                    self._image, "python", "-u", "/factory/harness.py"]
             self._proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                           stderr=subprocess.DEVNULL, text=True, bufsize=1)
+            # A reader thread + queue instead of select(): select() only takes
+            # sockets on Windows, so it can't wait on a pipe there. Each
+            # process gets its own queue, so late output from a killed one is
+            # never read by the next call.
+            self._lines = queue.Queue()
+            threading.Thread(target=_pump, args=(self._proc.stdout, self._lines), daemon=True).start()
             return self._proc, True
         return self._proc, False
 
@@ -52,8 +60,10 @@ class Worker:
         proc, started = self._start()
         proc.stdin.write(json.dumps(asdict(inv)) + "\n")
         proc.stdin.flush()
-        ready, _, _ = select.select([proc.stdout], [], [], timeout + (self.STARTUP_GRACE if started else 0))
-        line = proc.stdout.readline() if ready else ""
+        try:
+            line = self._lines.get(timeout=timeout + (self.STARTUP_GRACE if started else 0))
+        except queue.Empty:
+            line = ""
         if not line:
             self._kill()
             return Outcome(-1, "", "Timeout")
@@ -77,6 +87,16 @@ class Worker:
 
     def __exit__(self, *exc) -> None:
         self.close()
+
+
+def _pump(stream, lines: queue.Queue) -> None:
+    """Copy lines from a pipe into a queue; an empty string marks end of output."""
+    try:
+        for line in stream:
+            lines.put(line)
+    except (OSError, ValueError):  # pipe closed while reading
+        pass
+    lines.put("")
 
 
 def fresh_call(pin: RepoPin, patch: str | None, demo_app: str, inv: Invocation) -> Outcome:
