@@ -111,7 +111,12 @@ Requirement ids after the double underscore, joined by `_` if several (`test_new
 
 ```
 runs/<pair_id>/pair.json        # schema.Pair, saved with schema.save()
-runs/<pair_id>/patches/*.patch
+runs/<pair_id>/state.json       # pipeline progress: done stages, surface, held-out / valid-alt / mutant patch lists, repairs, solver results
+runs/<pair_id>/patches/ref_<side>.patch
+runs/<pair_id>/patches/heldout_<side>/      # Heet's held-out wrong patches (made before references)
+runs/<pair_id>/patches/valid_alt_<side>.patch
+runs/<pair_id>/patches/mutants_<side>/      # Urja's mutants
+runs/<pair_id>/patches/solver/<model>_<side>.patch
 runs/<pair_id>/graders/test_<side>.py          # current grader
 runs/<pair_id>/graders/test_<side>.initial.py  # snapshot before any repair (for G6h)
 runs/<pair_id>/logs/
