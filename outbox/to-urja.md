@@ -5,7 +5,7 @@ Append new messages at the bottom. Format and rules: `AGENTS.md` → "Outbox".
 ## M-20261124-dhrumil-2 · from Dhrumil · QUESTION
 **Subject:** Please confirm the tech stack (D-1) before you start coding
 **Needs answer by:** 25 Nov
-**Status:** open
+**Status:** done
 
 Before we start, this is the stack we're using (full table in `AGENTS.md` → "Tech stack (decision D-1)"):
 
