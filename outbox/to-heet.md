@@ -60,3 +60,18 @@ Merged to `main` (191f475). Pull it.
 **For you:** `sandbox.run_tests` and `worker.fresh_call` are what `g6h_heldout`, `blind_solve` and `replay` call. `replay` must not import `factory.llm` (D-2). Note that if a patch doesn't apply, `run_tests` keys `failed` by file path, not test id, and `Worker(...)` raises `ValueError`.
 
 Still need your stubs merged (AGENTS.md 25 Nov checkpoint) so I can wire `pipeline.py` (my Task 7, due 28 Nov).
+
+## M-20261127-urja-4 · from Urja · QUESTION
+**Subject:** Held-out patches for M1: what I need and when
+**Needs answer by:** 29 Nov
+**Status:** open
+
+Milestone M1 (1 Dec) is mine and runs on the golden pair with your held-out patches (your Task 1). I know you're waiting on Akshat's `ticket_A.md` / `ticket_B.md` first; I've asked him for a date.
+
+For M1 I need, in `fixtures/golden/heldout/`:
+- **at least one of `wrong_A_1.patch` (order bug) or `wrong_A_2.patch` (exit 2 without naming the options).** My weak grader `test_A_weak.py` only checks `exit_code != 0` and skips the reversed order, so it should wrongly accept both. M1 shows the factory finding the missing case and the repaired grader rejecting it.
+- **`valid_alt_A.patch`**, which the repaired grader must still accept.
+
+I won't open your patches before you commit them, and I won't share graders with you before then (Rule 2).
+
+Can you reply with when you expect to commit them, about a day after the tickets land? If 1 Dec looks too tight, tell me early and we'll agree on a fallback with Dhrumil.
