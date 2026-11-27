@@ -14,7 +14,7 @@ import shutil
 from pathlib import Path
 
 from factory import adapter_click
-from factory.schema import GateResult, Pair, Patch, RepoPin, _build, load, save
+from factory.schema import Finding, GateResult, Pair, Patch, RepoPin, _build, load, save
 
 STAGES = {
     "surface": "factory.propose.surface:discover_surface",
@@ -29,6 +29,8 @@ STAGES = {
     "grader": "factory.validate.grader:write_grader",
     "repair_grader": "factory.validate.grader:repair_grader",
     "g5": "factory.validate.probe:g5_twin_separation",
+    "search": "factory.validate.search:diff_search",
+    "classify": "factory.validate.search:classify_finding",
     "mutants": "factory.validate.mutants:make_mutants",
     "g6": "factory.validate.mutants:g6_mutants",
     "g7": "factory.validate.trace:g7_trace",
@@ -92,8 +94,37 @@ def _record(pair: Pair, result: GateResult, side: str | None) -> None:
     pair.gates.append(result)
 
 
+VALIDATION_GATES = {"G1", "G2", "G3", "G4", "G5", "G5s", "G6", "G7"}
+
+
+def _search(pair: Pair, state: dict) -> GateResult:
+    """Differential search between the two references as a lead finder (gate "G5s").
+
+    Findings are labelled against the tickets; they never become expected values here.
+    Shared-clause findings mean a reference breaks the shared contract.
+    """
+    if "findings" not in state:
+        a, b = pair.contracts["A"], pair.contracts["B"]
+        found = _fn("search")(pair.pin, pair.references["A"].path, pair.references["B"].path, a.demo_app, a.grammar)
+        for f in found:
+            f.label = _fn("classify")(f, pair.tickets["A"], pair.tickets["B"])
+        state["findings"] = [dataclasses.asdict(f) for f in found]
+    pair.findings = _build(list[Finding], state["findings"])
+    labels = [f.label for f in pair.findings]
+    if "shared" in labels:
+        return GateResult("G5s", False, {"reason": "a reference breaks a shared requirement", "labels": labels})
+    if "pivot" not in labels:
+        return GateResult("G5s", False, {"reason": "no distinguishing case found within budget", "labels": labels})
+    return GateResult("G5s", True, {"labels": labels})
+
+
 def _validate(pair: Pair, state: dict) -> tuple[GateResult, str | None] | None:
-    """Run G1-G7 once; return the first failure and its side (None for pair-level gates)."""
+    """Run G1-G7 once; return the first failure and its side (None for pair-level gates).
+
+    Results from an earlier attempt are dropped first, so pair.gates never shows
+    a gate as passed that wasn't re-checked after a repair.
+    """
+    pair.gates = [g for g in pair.gates if g.gate not in VALIDATION_GATES]
     for side in SIDES:
         for gate in ("g1", "g2", "g3"):
             result = _fn(gate)(pair, side)
@@ -104,10 +135,11 @@ def _validate(pair: Pair, state: dict) -> tuple[GateResult, str | None] | None:
         _record(pair, result, side)
         if not result.passed:
             return result, side
-    result = _fn("g5")(pair)
-    _record(pair, result, None)
-    if not result.passed:
-        return result, None
+    for gate in ("g5", "search"):
+        result = _fn(gate)(pair) if gate == "g5" else _search(pair, state)
+        _record(pair, result, None)
+        if not result.passed:
+            return result, None
     for side in SIDES:
         if side not in state.setdefault("mutants", {}):
             out = run_dir(pair.seed.pair_id) / "patches" / f"mutants_{side}"
@@ -126,11 +158,20 @@ def _validate(pair: Pair, state: dict) -> tuple[GateResult, str | None] | None:
 
 def _repair(pair: Pair, state: dict, failure: GateResult, side: str | None) -> None:
     """Existing-suite failures go to the reference author; everything else to the grader author."""
-    text = json.dumps({"gate": failure.gate, "detail": failure.detail}, sort_keys=True, default=str)
+    text = json.dumps({"gate": failure.gate, "detail": failure.detail, "findings": [
+        dataclasses.asdict(f) for f in pair.findings if f.label == "shared"]}, sort_keys=True, default=str)
+    if failure.gate == "G5s":  # a shared-clause finding: both references are suspects
+        for s in SIDES:
+            pair.references[s] = _fn("repair_reference")(pair.contracts[s], pair.tickets[s], pair.pin,
+                                                          pair.references[s], text)
+        state.pop("findings", None)
+        state.pop("mutants", None)
+        return
     if failure.gate == "G2" and failure.detail.get("suite_failed") and side is not None:
         pair.references[side] = _fn("repair_reference")(pair.contracts[side], pair.tickets[side], pair.pin,
                                                          pair.references[side], text)
         state.get("mutants", {}).pop(side, None)  # mutants derive from the reference
+        state.pop("findings", None)  # so does the search
         return
     for s in ([side] if side else SIDES):
         pair.graders[s] = _fn("repair_grader")(pair.contracts[s], pair.tickets[s], pair.graders[s], text,
@@ -138,7 +179,22 @@ def _repair(pair: Pair, state: dict, failure: GateResult, side: str | None) -> N
 
 
 def run_pair(family: str, pin: RepoPin, pair_id: str | None = None) -> Pair:
-    """Generate and validate one twin pair; resumes runs/<pair_id>/ if it exists."""
+    """Generate and validate one twin pair; resumes runs/<pair_id>/ if it exists.
+
+    A stage that raises ValueError (it couldn't produce a valid result) rejects
+    the pair with the stage named. BudgetExceeded / OfflineCacheMiss propagate,
+    so the run can be resumed later.
+    """
+    ctx: dict = {}
+    try:
+        return _run_pair(family, pin, pair_id, ctx)
+    except ValueError as e:
+        if "pair" not in ctx:
+            raise  # nothing to reject yet (failed before the seed was saved)
+        return _finish(ctx["pair"], ctx["state"], "rejected", f"{ctx['stage']}: {e}")
+
+
+def _run_pair(family: str, pin: RepoPin, pair_id: str | None, ctx: dict) -> Pair:
     state = load_state(pair_id) if pair_id else {"done": []}
     done = state["done"]
     if "finished" in done:
@@ -158,29 +214,34 @@ def run_pair(family: str, pin: RepoPin, pair_id: str | None = None) -> Pair:
         done.append("seed")
         _save(pair, state)
     rd = run_dir(pair.seed.pair_id)
+    ctx.update(pair=pair, state=state, stage="seed")
 
-    for name, stage, args in (("G8", "novelty", (pair.seed,)), ("G9", "realism", (pair.seed, state["surface"]))):
-        if name not in done:
-            result = _fn(stage)(*args)
+    def stage(name: str) -> bool:
+        ctx["stage"] = name
+        return name not in done
+
+    for name, fn, args in (("G8", "novelty", (pair.seed,)), ("G9", "realism", (pair.seed, state["surface"]))):
+        if stage(name):
+            result = _fn(fn)(*args)
             _record(pair, result, None)
             done.append(name)
             _save(pair, state)
             if not result.passed:
                 return _reject(pair, state, result)
 
-    if "contracts" not in done:
+    if stage("contracts"):
         a, b = _fn("contracts")(pair.seed, state["surface"])
         pair.contracts = {"A": a, "B": b}
         done.append("contracts")
         _save(pair, state)
 
-    if "tickets" not in done:
+    if stage("tickets"):
         pair.tickets = {s: _fn("ticket")(pair.contracts[s], pair.seed) for s in SIDES}
         done.append("tickets")
         _save(pair, state)
 
     # Held-out patches see only the ticket and are made before any reference exists.
-    if "heldout" not in done:
+    if stage("heldout"):
         state["heldout"] = {s: [dataclasses.asdict(p) for p in
                                 _fn("heldout")(pair.tickets[s], pin, rd / "patches" / f"heldout_{s}")] for s in SIDES}
         state["valid_alt"] = {s: dataclasses.asdict(
@@ -188,19 +249,19 @@ def run_pair(family: str, pin: RepoPin, pair_id: str | None = None) -> Pair:
         done.append("heldout")
         _save(pair, state)
 
-    if "references" not in done:
+    if stage("references"):
         pair.references = {s: _fn("reference")(pair.contracts[s], pair.tickets[s], pin,
                                                 rd / "patches" / f"ref_{s}.patch") for s in SIDES}
         done.append("references")
         _save(pair, state)
 
-    if "expectations" not in done:
+    if stage("expectations"):
         pair.expectations = {s: _fn("expect")(pair.tickets[s], pair.contracts[s].probe,
                                               pair.contracts[s].pivot().id) for s in SIDES}
         done.append("expectations")
         _save(pair, state)
 
-    if "graders" not in done:
+    if stage("graders"):
         for s in SIDES:
             path = _fn("grader")(pair.contracts[s], pair.tickets[s], pair.expectations[s],
                                  rd / "graders" / f"test_{s}.py")
@@ -211,24 +272,32 @@ def run_pair(family: str, pin: RepoPin, pair_id: str | None = None) -> Pair:
 
     repairs = state.setdefault("repairs", [])
     while True:
+        ctx["stage"] = "validate"
         failed = _validate(pair, state)
         _save(pair, state)
         if failed is None:
             break
         result, side = failed
-        if len(repairs) >= MAX_REPAIRS:
+        unfixable = result.gate == "G5s" and "shared" not in result.detail.get("labels", [])
+        if unfixable or len(repairs) >= MAX_REPAIRS:
             return _reject(pair, state, result)
         repairs.append({"gate": result.gate, "side": side})
-        _repair(pair, state, result, side)
+        try:
+            _repair(pair, state, result, side)
+        except ValueError as e:  # the repair itself failed: the attempt is used up
+            repairs[-1]["error"] = str(e)
         _save(pair, state)
 
     # G6h is measurement only: a failure rejects the pair and never feeds a repair.
+    ctx["stage"] = "G6h"
+    results = {}
     for s in SIDES:
         patches = _patches(state["heldout"][s]) + _patches([state["valid_alt"][s]])
-        result = _fn("g6h")(pair, s, patches)
-        _record(pair, result, s)
-        if not result.passed:
-            return _reject(pair, state, result)
+        results[s] = _fn("g6h")(pair, s, patches)
+        _record(pair, results[s], s)
+    for s in SIDES:
+        if not results[s].passed:
+            return _reject(pair, state, results[s])
     done.append("G6h")
     return _finish(pair, state, "accepted")
 
