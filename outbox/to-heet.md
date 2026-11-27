@@ -75,3 +75,18 @@ For M1 I need, in `fixtures/golden/heldout/`:
 I won't open your patches before you commit them, and I won't share graders with you before then (Rule 2).
 
 Can you reply with when you expect to commit them, about a day after the tickets land? If 1 Dec looks too tight, tell me early and we'll agree on a fallback with Dhrumil.
+
+## M-20261127-dhrumil-4 · from Dhrumil · REQUEST
+**Subject:** Pipeline is on main and waits on your stubs; CLI calls your export/replay/report
+**Needs answer by:** 28 Nov
+**Status:** open
+
+Merged to `main` (625213b). `python -m factory generate --family <f>` now runs the whole pair: surface → seed → G8 → G9 → contracts → tickets → held-out (ticket only, before references) → references → expectations → graders → G1–G4 → G5 → **G5s differential search** → mutants → G6 → G7 → G6h. State is saved in `runs/<pair_id>/` (`pair.json` + `state.json`; layout in AGENTS.md → "Run state on disk"), so killed runs resume.
+
+Your functions are looked up by name from `factory.pipeline.STAGES` when their stage runs; keep the module paths and signatures from your plan's Produces list and the pipeline picks them up with no edit. A stage that raises `ValueError` rejects the pair (the stage is named in `reject_reason`); `BudgetExceeded` / `OfflineCacheMiss` stop the run so it can be resumed.
+
+**Stages that call you:** `factory.evaluate.heldout:make_heldout` / `valid_alternative` (before references, ticket only) and `g6h_heldout` (both sides recorded, then reject if either fails; it never triggers a repair); `evaluate_pair` calls `solver:blind_solve` and `diagnose:diagnose` and stores results in `state.json["solver"]["<model>:<side>"] = {patch, diagnosis}`.
+
+**CLI calls you:** `python -m factory export` → `factory.export:export_pair(pair, out_dir)`; `replay` → `factory.export:replay(package_dir)` (exit 1 unless `matches`); `report` → `factory.report.build:build_report(runs_dir, out)`. Paths your export reads: `runs/<id>/patches/{ref_<side>.patch, heldout_<side>/, valid_alt_<side>.patch, mutants_<side>/, solver/<model>_<side>.patch}`, graders in `runs/<id>/graders/test_<side>.py` and `test_<side>.initial.py`.
+
+Stubs that raise `NotImplementedError` are enough for today; please merge them.

@@ -77,3 +77,16 @@ What I need from you, in this order if you can split it:
 2. `ref_A.patch`, `ref_B.patch`
 
 Please reply with a date, or tell me if something is stuck (novelty check, the patches, anything) and I'll help where I can without touching your files.
+
+## M-20261127-dhrumil-2 · from Dhrumil · REQUEST
+**Subject:** Pipeline is on main and waits on your stubs + golden pair
+**Needs answer by:** 28 Nov
+**Status:** open
+
+Merged to `main` (625213b). `python -m factory generate --family <f>` now runs the whole pair: surface → seed → G8 → G9 → contracts → tickets → held-out (ticket only, before references) → references → expectations → graders → G1–G4 → G5 → **G5s differential search** → mutants → G6 → G7 → G6h. State is saved in `runs/<pair_id>/` (`pair.json` + `state.json`; layout in AGENTS.md → "Run state on disk"), so killed runs resume.
+
+Your functions are looked up by name from `factory.pipeline.STAGES` when their stage runs; keep the module paths and signatures from your plan's Produces list and the pipeline picks them up with no edit. A stage that raises `ValueError` rejects the pair (the stage is named in `reject_reason`); `BudgetExceeded` / `OfflineCacheMiss` stop the run so it can be resumed.
+
+**You are now the blocker for the first end-to-end run.** `generate` fails at the first stage until these exist with your planned signatures: `factory.propose.surface:discover_surface`, `seeds:propose_seed`, `novelty:novelty_gate`, `realism:realism_gate`, `contract:write_contracts`, `ticket:render_ticket`, `reference:write_reference` / `repair_reference`. Stubs that raise `NotImplementedError` are enough for today; the golden pair in `fixtures/golden/` unblocks the twin-replay CI job, Urja's golden graders and M1 (1 Dec).
+
+Notes: `write_contracts` raising `ValueError` after its retries is handled (pair rejected). `repair_reference` is now also called on **both** sides when differential search finds a case where a reference breaks a shared requirement; the failure text includes those findings.
