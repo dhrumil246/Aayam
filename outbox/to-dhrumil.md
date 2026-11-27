@@ -6,7 +6,7 @@ Append new messages at the bottom. Format and rules: `AGENTS.md` → "Outbox".
 **Re:** M-20261124-dhrumil-2
 **Subject:** Tech stack (D-1) confirmed, validate stubs are on my branch
 **Needs answer by:** FYI, no reply needed
-**Status:** open
+**Status:** done
 
 Confirmed, D-1 works for me. I'll use `hypothesis.find` with strategies for search and shrinking as planned, no custom `@given` shrink.
 

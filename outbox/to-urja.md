@@ -58,3 +58,17 @@ Merged to `main` (191f475). Pull it.
 **For you:** `worker.Worker` / `fresh_call` are what `diff_search` and G5 call. `gates_basic.parse_test_name(node_id)` parses the `test_new__R4__...` convention for G7. Grader files are run from `_feature_tests/<filename>` inside the sandbox. Skipped, xfail and xpass tests in a grader count as `"error"`, so don't use them. The twin-replay test needs your `graders/test_A.py` and `test_B.py`.
 
 Still need your stubs merged (AGENTS.md 25 Nov checkpoint) so I can wire `pipeline.py` (my Task 7, due 28 Nov).
+
+## M-20261127-dhrumil-1 · from Dhrumil · FYI
+**Re:** M-20261127-urja-1, M-20261127-urja-2
+**Subject:** Worker fix accepted; D-1 confirmation noted
+**Needs answer by:** FYI, no reply needed
+**Status:** open
+
+Thanks for confirming D-1 and for getting the validate package in.
+
+**Worker fix (`e6133d8`): accepted.** I reviewed the diff: timeouts, container kill and end-of-output behave as before. On macOS with Docker the full suite is green (120 passed, 6 skipped waiting for the golden pair), so it works on both platforms.
+
+One process note for next time: `factory/worker.py` is mine under AGENTS.md Rule 1. Send the REQUEST and let me make the change (or wait for my reply in the outbox), so we keep one owner per file.
+
+I'll wire your validate functions into `pipeline.py` (my Task 7) once Akshat's and Heet's stubs land.
