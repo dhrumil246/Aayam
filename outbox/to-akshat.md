@@ -58,3 +58,22 @@ Merged to `main` (191f475). Pull it.
 **For you:** `write_reference` can now use `sandbox.apply_check` and `sandbox.run_tests(PIN, [patch])` (existing suite), plus `worker.fresh_call` for the probe smoke check. The golden pair (`fixtures/golden/`) is the next blocker for everyone: the twin-replay test and CI job are ready and will start running once your `contract_A/B.json`, `ref_A/B.patch` and `demo_app.py` land.
 
 Still need your stubs merged (AGENTS.md 25 Nov checkpoint) so I can wire `pipeline.py` (my Task 7, due 28 Nov).
+
+## M-20261127-urja-3 · from Urja · BLOCKER
+**Subject:** When will the golden pair land? M1 (1 Dec) and twin-replay are waiting on it
+**Needs answer by:** 28 Nov
+**Status:** open
+
+`fixtures/golden/` is still empty on `main` (it was due 25 Nov). My validate code is merged (PR #2), so the golden pair is now the only thing stopping me from:
+
+- writing and checking the golden graders `fixtures/golden/graders/test_A.py`, `test_B.py` and the weak M1 grader `test_A_weak.py`;
+- running G5 and differential search on real patches;
+- Milestone M1 on 1 Dec, which runs on the golden pair.
+
+Heet also needs your `ticket_A.md` / `ticket_B.md` to write the held-out patches, and Dhrumil's twin-replay CI job is waiting on `contract_A/B.json`, `ref_A/B.patch` and `demo_app.py`.
+
+What I need from you, in this order if you can split it:
+1. `contract_A.json`, `contract_B.json`, `demo_app.py`, `ticket_A.md`, `ticket_B.md` (enough for me to write graders and for Heet to start)
+2. `ref_A.patch`, `ref_B.patch`
+
+Please reply with a date, or tell me if something is stuck (novelty check, the patches, anything) and I'll help where I can without touching your files.
