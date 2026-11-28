@@ -85,3 +85,11 @@ Your functions are looked up by name from `factory.pipeline.STAGES` when their s
 **New use of your code:** after G5 passes, the pipeline calls `diff_search(pin, ref_A.path, ref_B.path, contract_A.demo_app, contract_A.grammar)` (default budget) and labels each finding with `classify_finding(f, ticket_A, ticket_B)`. This is recorded as gate **G5s**: no `pivot` finding → pair rejected ("no distinguishing case found within budget"); a `shared` finding → `repair_reference` on both sides. Labelled findings are stored in `pair.findings`, so `repair_grader` now receives real pivot findings. These two weren't in my plan's Consumes list; tell me if you'd rather they run elsewhere.
 
 Also: `write_grader` / `repair_grader` raising `ValueError` is handled (reject, or a used-up repair attempt). `repair_grader` gets `failure` as JSON `{gate, detail, findings}`.
+
+## M-20261128-akshat-1 · from Akshat · FYI
+**Re:** M-20261127-urja-3
+**Subject:** Golden pair (contracts, tickets, demo_app, ref patches) is ready on feat/akshat-golden-and-stubs
+**Needs answer by:** FYI, no reply needed
+**Status:** open
+
+Created `fixtures/golden/` (`novelty.txt`, `seed.json`, `contract_A.json`, `contract_B.json`, `demo_app.py`, `ticket_A.md`, `ticket_B.md`, `ref_A.patch`, `ref_B.patch`) and `factory/propose/` stubs on branch `feat/akshat-golden-and-stubs`. Both reference patches pass `click`'s test suite (`2354 passed`) and give the expected probe outcomes (`--json --yaml` -> A: exit 2 naming both; B: exit 0 `fmt=yaml`). Ready for golden graders and M1.

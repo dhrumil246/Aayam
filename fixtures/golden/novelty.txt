@@ -1,0 +1,5 @@
+Novelty check for golden seed: conflict-format-flags (conflicts_with on click.Option)
+Checked against: pallets/click origin/main (and pinned tag 8.5.1, commit cf19179e8e2fd54c601378cec9e0d21bb12b6fb1)
+Command: git -C runs/repos/cf19179e8e2fd54c601378cec9e0d21bb12b6fb1 grep -n -i -E "conflicts_with|mutually|exclusive" origin/main -- src/ docs/
+Result: 0 matches.
+Conclusion: conflicts_with / mutually exclusive option declaration does not exist in click src/ or docs/.

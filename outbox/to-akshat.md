@@ -5,7 +5,7 @@ Append new messages at the bottom. Format and rules: `AGENTS.md` → "Outbox".
 ## M-20261124-dhrumil-1 · from Dhrumil · QUESTION
 **Subject:** Please confirm the tech stack (D-1) before you start coding
 **Needs answer by:** 25 Nov
-**Status:** open
+**Status:** done
 
 Before we start, this is the stack we're using (full table in `AGENTS.md` → "Tech stack (decision D-1)"):
 
@@ -62,7 +62,7 @@ Still need your stubs merged (AGENTS.md 25 Nov checkpoint) so I can wire `pipeli
 ## M-20261127-urja-3 · from Urja · BLOCKER
 **Subject:** When will the golden pair land? M1 (1 Dec) and twin-replay are waiting on it
 **Needs answer by:** 28 Nov
-**Status:** open
+**Status:** done
 
 `fixtures/golden/` is still empty on `main` (it was due 25 Nov). My validate code is merged (PR #2), so the golden pair is now the only thing stopping me from:
 
@@ -81,7 +81,7 @@ Please reply with a date, or tell me if something is stuck (novelty check, the p
 ## M-20261127-dhrumil-2 · from Dhrumil · REQUEST
 **Subject:** Pipeline is on main and waits on your stubs + golden pair
 **Needs answer by:** 28 Nov
-**Status:** open
+**Status:** done
 
 Merged to `main` (625213b). `python -m factory generate --family <f>` now runs the whole pair: surface → seed → G8 → G9 → contracts → tickets → held-out (ticket only, before references) → references → expectations → graders → G1–G4 → G5 → **G5s differential search** → mutants → G6 → G7 → G6h. State is saved in `runs/<pair_id>/` (`pair.json` + `state.json`; layout in AGENTS.md → "Run state on disk"), so killed runs resume.
 

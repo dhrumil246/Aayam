@@ -1,0 +1,57 @@
+{
+  "demo_app": "import click\n\n\n@click.command()\n@click.option(\"--json\", \"fmt\", flag_value=\"json\", conflicts_with=[\"--yaml\"], help=\"Output JSON.\")\n@click.option(\"--yaml\", \"fmt\", flag_value=\"yaml\", conflicts_with=[\"--json\"], help=\"Output YAML.\")\n@click.option(\"--verbose\", is_flag=True, help=\"Verbose output.\")\ndef cli(fmt, verbose):\n    click.echo(f\"fmt={fmt} verbose={verbose}\")\n",
+  "family": "conflict",
+  "grammar": {
+    "max_tokens": 4,
+    "options": [
+      {
+        "flag": "--json",
+        "kind": "flag"
+      },
+      {
+        "flag": "--yaml",
+        "kind": "flag"
+      },
+      {
+        "flag": "--verbose",
+        "kind": "flag"
+      }
+    ]
+  },
+  "open_items": [
+    "Whether --help output mentions option conflicts."
+  ],
+  "pair_id": "conflict-format-flags",
+  "probe": {
+    "argv": [
+      "--json",
+      "--yaml"
+    ],
+    "env": {},
+    "input": null
+  },
+  "public_api": "click.Option(..., conflicts_with: Sequence[str] | None = None)\nclick.option(..., conflicts_with: Sequence[str] | None = None)",
+  "requirements": [
+    {
+      "id": "R1",
+      "pivot": false,
+      "text": "click.Option and click.option accept a conflicts_with parameter (a sequence of option names or option flags, or None)."
+    },
+    {
+      "id": "R2",
+      "pivot": false,
+      "text": "When only one of the conflicting options is passed on the command line, it behaves identically to an option without conflicts_with."
+    },
+    {
+      "id": "R3",
+      "pivot": false,
+      "text": "Options not listed in conflicts_with are unaffected and may be combined freely with conflicting options."
+    },
+    {
+      "id": "R4",
+      "pivot": true,
+      "text": "When conflicting options are combined on the command line, the option that appears last on the command line wins with no error."
+    }
+  ],
+  "side": "B"
+}
