@@ -1,0 +1,65 @@
+diff --git a/src/click/core.py b/src/click/core.py
+index e4b6b57..66f1e14 100644
+--- a/src/click/core.py
++++ b/src/click/core.py
+@@ -1371,6 +1371,19 @@ class Command:
+         parser = self.make_parser(ctx)
+         opts, args, param_order = parser.parse_args(args=args)
+ 
++        overridden_params: set[Parameter] = set()
++        for idx, param in enumerate(param_order):
++            if any(_options_conflict(param, later) for later in param_order[idx + 1 :]):
++                overridden_params.add(param)
++            else:
++                overridden_params.discard(param)
++        if overridden_params:
++            param_order = [p for p in param_order if p not in overridden_params]
++            active_names = {p.name for p in param_order}
++            for param in overridden_params:
++                if param.name not in active_names and param.name in opts:
++                    del opts[param.name]
++
+         for param in iter_params_for_processing(param_order, self.get_params(ctx)):
+             _, args = param.handle_parse_result(ctx, opts, args)
+ 
+@@ -2888,6 +2901,24 @@ class Parameter(ABC):
+         return self.type.shell_complete(ctx, self, incomplete)
+ 
+ 
++
++def _option_matches_conflict(param: Parameter, target: str) -> bool:
++    if target == param.name or target in param.opts or target in param.secondary_opts:
++        return True
++    dashed = f"--{target.replace('_', '-')}"
++    return dashed in param.opts or f"-{target}" in param.opts
++
++
++def _options_conflict(a: Parameter, b: Parameter) -> bool:
++    if a is b:
++        return False
++    a_cw = getattr(a, "conflicts_with", ())
++    b_cw = getattr(b, "conflicts_with", ())
++    return any(_option_matches_conflict(b, t) for t in a_cw) or any(
++        _option_matches_conflict(a, t) for t in b_cw
++    )
++
++
+ class Option(Parameter):
+     """Options are usually optional values on the command line and
+     have some extra features that arguments don't have.
+@@ -2999,6 +3030,7 @@ class Option(Parameter):
+         show_choices: bool = True,
+         show_envvar: bool = False,
+         deprecated: bool | str = False,
++        conflicts_with: cabc.Sequence[str] | None = None,
+         **attrs: t.Any,
+     ) -> None:
+         super().__init__(
+@@ -3053,6 +3085,7 @@ class Option(Parameter):
+         self.show_default = show_default
+         self.show_choices = show_choices
+         self.show_envvar = show_envvar
++        self.conflicts_with: tuple[str, ...] = tuple(conflicts_with) if conflicts_with is not None else ()
+ 
+         # Phase 5: validate. Raises on illegal kwarg combinations.
+         self._validate(prompt, deprecated)

@@ -1,0 +1,9 @@
+{
+  "family": "conflict",
+  "feature": "Add a conflicts_with parameter to click.Option (and click.option) accepting a sequence of other option names or flags that conflict with this option.",
+  "pair_id": "conflict-format-flags",
+  "policy_a": "Combining conflicting options on the command line raises a usage error (exit code 2) whose message names both conflicting options.",
+  "policy_b": "When conflicting options are combined on the command line, the option that appears last on the command line wins with no error.",
+  "reason_a": "Automated scripts should fail loudly when given contradictory flags instead of silently guessing which one the caller meant.",
+  "reason_b": "Shell wrappers and aliases often pre-populate default flags, so letting the last flag on the command line override an earlier conflicting flag is ergonomic."
+}

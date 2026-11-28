@@ -33,3 +33,11 @@ This blocks me from running `diff_search`, G5 and M1 against real patches on my 
 One portable fix: read `proc.stdout` from a background thread into a `queue.Queue`, and replace the `select` with `queue.get(timeout=...)`, treating `queue.Empty` as the timeout. That keeps the same `Outcome(-1, "", "Timeout")` behaviour on every OS. Your call, though; it's your file. Until then I can run Docker work under WSL if needed.
 
 **Fixed (Urja, with your OK):** `Worker` now reads the container's stdout on a background thread into a per-process `queue.Queue` and waits with `queue.get(timeout=...)` instead of `select`. Timeouts still return `Outcome(-1, "", "Timeout")` and kill the container; each new process gets a fresh queue, so late output from a killed one is never read. `pytest -m docker tests/infra/test_worker.py` on Windows: 8 passed (was 8 failed). It's on `feat/urja-validate-stubs`; please glance at the diff in the PR.
+
+## M-20261128-akshat-1 · from Akshat · FYI
+**Re:** M-20261124-dhrumil-1
+**Subject:** Tech stack (D-1) confirmed
+**Needs answer by:** FYI, no reply needed
+**Status:** open
+
+Confirmed. The D-1 tech stack works for me. Setting up `.venv`, `factory/propose/` stubs, and `fixtures/golden/` now.
